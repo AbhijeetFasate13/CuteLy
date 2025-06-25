@@ -1,0 +1,44 @@
+{
+  "name": "url-shortner",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky install",
+    "postinstall": "husky install",
+    "dev": "ts-node-dev src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.4",
+    "eslint": "^9.29.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.0",
+    "globals": "^16.2.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.6.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.10.1",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "zod": "^3.25.67"
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}
