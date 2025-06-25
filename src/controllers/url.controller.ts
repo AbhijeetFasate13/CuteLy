@@ -16,7 +16,10 @@ export const shortenUrl = async (req: Request, res: Response) => {
       .status(201)
       .json({ slug, shortUrl: `${req.protocol}://${req.get("host")}/${slug}` });
   } catch (err) {
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("Shorten URL error:", err);
+    return res
+      .status(500)
+      .json({ error: (err as Error).message, stack: (err as Error).stack });
   }
 };
 
@@ -25,6 +28,7 @@ export const redirectToUrl = async (req: Request, res: Response) => {
   try {
     const originalUrl = await urlService.getOriginalUrl(slug);
     return res.redirect(originalUrl);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (err) {
     return res.status(404).json({ error: "URL not found" });
   }
