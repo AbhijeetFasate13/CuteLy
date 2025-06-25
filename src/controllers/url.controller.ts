@@ -16,10 +16,8 @@ export const shortenUrl = async (req: Request, res: Response) => {
       .status(201)
       .json({ slug, shortUrl: `${req.protocol}://${req.get("host")}/${slug}` });
   } catch (err) {
-    console.error("Shorten URL error:", err);
-    return res
-      .status(500)
-      .json({ error: (err as Error).message, stack: (err as Error).stack });
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
