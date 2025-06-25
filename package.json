@@ -5,10 +5,11 @@
   "scripts": {
     "test": "npm run prisma:prepare && mocha --require ts-node/register --extension ts src/tests/**/*.test.ts",
     "prisma:prepare": "npx prisma generate && npx prisma db push",
+    "db:setup": "npx prisma db push",
     "prepare": "husky install",
-    "postinstall": "npx prisma generate",
+    "postinstall": "husky install",
     "dev": "ts-node-dev src/index.ts",
-    "build": "npx prisma generate && tsc",
+    "build": "npx prisma generate && npx prisma db push && tsc",
     "start": "node dist/index.js",
     "lint": "eslint . --ext .ts"
   },
