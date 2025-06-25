@@ -6,9 +6,9 @@
     "test": "npm run prisma:prepare && mocha --require ts-node/register --extension ts src/tests/**/*.test.ts",
     "prisma:prepare": "npx prisma generate && npx prisma db push",
     "prepare": "husky install",
-    "postinstall": "husky install",
+    "postinstall": "npx prisma generate",
     "dev": "ts-node-dev src/index.ts",
-    "build": "tsc",
+    "build": "npx prisma generate && tsc",
     "start": "node dist/index.js",
     "lint": "eslint . --ext .ts"
   },
