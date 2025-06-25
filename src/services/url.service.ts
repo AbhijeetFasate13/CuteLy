@@ -19,10 +19,23 @@ export class UrlService {
   }
 
   async getOriginalUrl(slug: string): Promise<string> {
-    const id = toBase10(slug);
-    const url = await this.urlRepository.findById(id);
-    if (!url) throw new Error("URL not found");
-    await this.urlRepository.incrementHitCount(url.slug);
-    return url.originalUrl;
+    let id: number;
+    try {
+      id = toBase10(slug);
+    } catch {
+      throw new Error("URL not found");
+    }
+    // If id is not a safe integer, treat as not found
+    if (!Number.isSafeInteger(id) || id < 1) {
+      throw new Error("URL not found");
+    }
+    try {
+      const url = await this.urlRepository.findById(id);
+      if (!url) throw new Error("URL not found");
+      await this.urlRepository.incrementHitCount(url.slug);
+      return url.originalUrl;
+    } catch {
+      throw new Error("URL not found");
+    }
   }
 }
