@@ -1,5 +1,6 @@
 import { UrlRepository } from "../repositories/url.repository";
 import { toBase10, toBase62 } from "../utils/base62.util";
+import redis from "../config/redis";
 
 export class UrlService {
   private urlRepository: UrlRepository;
@@ -19,13 +20,17 @@ export class UrlService {
   }
 
   async getOriginalUrl(slug: string): Promise<string> {
+    // 1. Try cache
+    const cached = await redis.get(`slug:${slug}`);
+    if (cached) return cached;
+
+    // 2. Fallback to DB
     let id: number;
     try {
       id = toBase10(slug);
     } catch {
       throw new Error("URL not found");
     }
-    // If id is not a safe integer, treat as not found
     if (!Number.isSafeInteger(id) || id < 1) {
       throw new Error("URL not found");
     }
@@ -33,6 +38,8 @@ export class UrlService {
       const url = await this.urlRepository.findById(id);
       if (!url) throw new Error("URL not found");
       await this.urlRepository.incrementHitCount(url.slug);
+      // 3. Cache result
+      await redis.set(`slug:${slug}`, url.originalUrl, "EX", 60 * 60); // 1 hour TTL
       return url.originalUrl;
     } catch {
       throw new Error("URL not found");

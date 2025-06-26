@@ -1,10 +1,20 @@
 import { Request, Response } from "express";
 import { UrlService } from "../services/url.service";
 import { shortenUrlSchema } from "../dto/url.dto";
+import redis from "../config/redis";
 
 const urlService = new UrlService();
 
 export const shortenUrl = async (req: Request, res: Response) => {
+  const ip = req.ip;
+  const key = `rate:${ip}`;
+  const count = await redis.incr(key);
+  if (count === 1) {
+    await redis.expire(key, 60); // 1 minute window
+  }
+  if (count > 10) {
+    return res.status(429).json({ error: "Too many requests, slow down!" });
+  }
   const parseResult = shortenUrlSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ error: "Invalid URL" });
