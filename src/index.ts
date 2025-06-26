@@ -66,8 +66,8 @@ app.use(healthRoutes);
 // API routes
 app.use(urlRoutes);
 
-// 404 handler
-app.use("*", (req, res) => {
+// 404 handler - must be last
+app.use((req, res) => {
   logger.warn(`Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: "Route not found" });
 });
