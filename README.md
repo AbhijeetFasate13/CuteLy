@@ -7,6 +7,7 @@ A scalable, high-performance URL shortener built with modern TypeScript, Node.js
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 ![Express](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge&logo=express&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
 ## 🏗️ Architecture Overview
 
@@ -32,6 +33,8 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - **Service Layer**: Contains business logic, ensuring controllers remain thin
 - **Type Safety**: Full TypeScript coverage with strict configuration
 - **Validation**: Zod schemas for runtime type safety and API validation
+- **Caching Strategy**: Redis for both read and write path optimization
+- **Structured Logging**: Winston-based logging with different levels and formats
 
 ## 🛠️ Tech Stack
 
@@ -41,9 +44,13 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - **Language**: TypeScript (strict mode)
 - **Framework**: Express.js
 - **Database**: PostgreSQL with Prisma ORM
+- **Caching**: Redis with ioredis
 - **Validation**: Zod
 - **Testing**: Mocha + Chai
 - **Code Quality**: ESLint + Prettier + Husky
+- **Logging**: Winston
+- **Documentation**: Swagger/OpenAPI
+- **Security**: Helmet.js, CORS
 
 ### Development Tools
 
@@ -61,6 +68,7 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - ✅ **Collision-Free Slugs**: Base62 encoding ensures unique, predictable URLs
 - ✅ **Analytics**: Track hit counts and last access times
 - ✅ **Type Safety**: Full TypeScript coverage with runtime validation
+- ✅ **Idempotent Operations**: Same long URL always returns same short URL
 
 ### Production Features
 
@@ -71,17 +79,37 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - ✅ **Testing**: Unit tests with Mocha and Chai
 - ✅ **Database Migrations**: Prisma migrations for schema versioning
 - ✅ **Environment Configuration**: Secure environment variable management
+- ✅ **Structured Logging**: Winston-based logging with file and console output
+- ✅ **API Documentation**: Interactive Swagger documentation
+- ✅ **Health Monitoring**: Comprehensive health checks for all services
+- ✅ **Security Headers**: Helmet.js for security best practices
+- ✅ **Rate Limiting**: IP-based rate limiting with Redis
+- ✅ **Caching**: Redis caching for both read and write operations
+- ✅ **Graceful Shutdown**: Proper signal handling for container orchestration
 
 ### Scalability Considerations
 
 - **Database Indexing**: Optimized queries with proper indexes
 - **Connection Pooling**: Prisma handles database connection management
 - **Modular Design**: Easy to add features like user authentication, rate limiting
-- **Caching Ready**: Architecture supports Redis integration for performance
+- **Caching Strategy**: Redis integration for performance optimization
+- **Horizontal Scaling**: Stateless design allows easy scaling
+- **Monitoring**: Comprehensive logging and health checks
 
 ## 📚 API Documentation
 
-### POST /api/shorten
+### Interactive Documentation
+
+Visit `/api-docs` for interactive Swagger documentation with:
+
+- Complete API reference
+- Request/response examples
+- Try-it-out functionality
+- Schema definitions
+
+### Core Endpoints
+
+#### POST /api/shorten
 
 Creates a short URL from a long URL.
 
@@ -106,9 +134,10 @@ Creates a short URL from a long URL.
 
 - `201 Created`: URL successfully shortened
 - `400 Bad Request`: Invalid URL format
+- `429 Too Many Requests`: Rate limit exceeded
 - `500 Internal Server Error`: Server error
 
-### GET /:slug
+#### GET /:slug
 
 Redirects to the original URL.
 
@@ -117,12 +146,34 @@ Redirects to the original URL.
 - `302 Found`: Redirects to original URL
 - `404 Not Found`: Slug doesn't exist
 
+#### GET /health
+
+Comprehensive health check for all services.
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-06-26T17:33:17.555Z",
+  "uptime": 3600,
+  "responseTime": "15ms",
+  "services": {
+    "database": "healthy",
+    "redis": "healthy"
+  },
+  "version": "1.0.0",
+  "environment": "production"
+}
+```
+
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 20+
 - PostgreSQL 15+
+- Redis 6+
 - npm
 
 ### Installation
@@ -144,7 +195,7 @@ Redirects to the original URL.
 
    ```bash
    cp .env.example .env
-   # Edit .env with your database credentials
+   # Edit .env with your database and Redis credentials
    ```
 
 4. **Set up the database**
@@ -171,7 +222,9 @@ Create a `.env` file with:
 
 ```env
 DATABASE_URL="postgresql://username:password@localhost:5432/urlshortener?schema=public"
+REDIS_URL="redis://localhost:6379"
 PORT=3000
+NODE_ENV=development
 ```
 
 ## 🧪 Testing
@@ -191,6 +244,7 @@ npm run test:with-db
 - **Unit Tests**: Service layer business logic
 - **Integration Tests**: API endpoints (ready to add)
 - **Database Tests**: Repository layer operations
+- **Caching Tests**: Redis integration verification
 
 ### Test Architecture
 
@@ -199,129 +253,79 @@ npm run test:with-db
 - **ts-node**: TypeScript support in tests
 - **Database**: Real PostgreSQL for integration testing
 
-## 🔧 Development
+## 📊 Monitoring & Observability
 
-### Available Scripts
+### Logging
 
-```bash
-npm run dev          # Start development server with hot reload
-npm run build        # Build TypeScript to JavaScript
-npm run start        # Start production server
-npm run test         # Run tests
-npm run lint         # Run ESLint
-npm run format       # Run Prettier
-```
+- **Structured Logging**: Winston-based logging with JSON format
+- **Log Levels**: Error, Warn, Info, HTTP, Debug
+- **File Output**: Separate error and combined log files
+- **Development**: Colored console output with timestamps
 
-### Code Quality
+### Health Checks
 
-- **ESLint**: Enforces code style and catches errors
-- **Prettier**: Consistent code formatting
-- **Husky**: Git hooks for pre-commit validation
-- **lint-staged**: Only lint staged files for performance
+- **Service Health**: Database and Redis connectivity
+- **Response Times**: Performance monitoring
+- **Uptime Tracking**: Server uptime monitoring
+- **Environment Info**: Version and environment details
 
-### Git Workflow
+### API Monitoring
 
-```bash
-git add .
-git commit -m "feat: add new feature"  # Pre-commit hooks run automatically
-git push
-```
+- **Request Logging**: All HTTP requests with timing
+- **Error Tracking**: Comprehensive error logging with stack traces
+- **Performance Metrics**: Response time tracking
+- **Rate Limiting**: IP-based rate limit monitoring
+
+## 🔒 Security Features
+
+- **Security Headers**: Helmet.js for security best practices
+- **CORS Configuration**: Configurable cross-origin resource sharing
+- **Input Validation**: Zod schemas for all inputs
+- **Rate Limiting**: IP-based rate limiting to prevent abuse
+- **Request Size Limits**: Protection against large payloads
+- **Error Sanitization**: Safe error messages in production
 
 ## 🚀 Deployment
 
-### Production Considerations
+### Railway Deployment
 
-- **Environment Variables**: Secure configuration management
-- **Database**: PostgreSQL with connection pooling
-- **Process Management**: PM2 or Docker for containerization
-- **Monitoring**: Health checks and logging
-- **Caching**: Redis for performance optimization
-- **Rate Limiting**: Protect against abuse
+1. **Connect your repository to Railway**
+2. **Add PostgreSQL and Redis plugins**
+3. **Set environment variables**
+4. **Deploy automatically on push**
 
-### Docker Deployment
+### Environment Variables for Production
 
-```dockerfile
-# Example Dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
+```env
+DATABASE_URL="postgresql://..."
+REDIS_URL="redis://..."
+NODE_ENV=production
+PORT=3000
 ```
 
-### Cloud Platforms
+## 📈 Performance Optimizations
 
-- **Railway**: Easy PostgreSQL + Node.js deployment
-- **Render**: Free tier with PostgreSQL
-- **Heroku**: Traditional Node.js hosting
-- **AWS**: EC2 + RDS for enterprise scaling
-
-## 📊 Performance & Scalability
-
-### Current Optimizations
-
-- **Database Indexing**: Optimized queries on slug and ID fields
-- **Connection Pooling**: Prisma handles database connections efficiently
-- **Type Safety**: Prevents runtime errors and improves performance
-- **Modular Architecture**: Easy to add caching and load balancing
-
-### Future Enhancements
-
-- **Redis Caching**: Cache frequently accessed URLs
-- **CDN Integration**: Global content delivery
-- **Rate Limiting**: Protect against abuse
-- **Analytics Dashboard**: User-friendly analytics interface
-- **Custom Domains**: Allow users to use their own domains
-- **API Authentication**: JWT-based API access
+- **Redis Caching**: Both read and write path optimization
+- **Database Indexing**: Optimized queries with proper indexes
+- **Connection Pooling**: Efficient database connection management
+- **Idempotent Operations**: Prevents duplicate URL creation
+- **Rate Limiting**: Prevents abuse and ensures fair usage
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
 
-### Development Guidelines
-
-- Follow TypeScript best practices
-- Write tests for new features
-- Ensure all tests pass
-- Follow the existing code style
-- Update documentation as needed
-
-## 📝 License
+## 📄 License
 
 This project is licensed under the ISC License.
 
-## 👨‍💻 About the Developer
-
-**Abhijeet Fasate** - Backend Engineer
-
-This project demonstrates:
-
-- **Clean Architecture** implementation
-- **Production-ready** code practices
-- **TypeScript** expertise with strict configuration
-- **Database design** with Prisma ORM
-- **Testing strategies** for maintainable code
-- **DevOps practices** with CI/CD readiness
-- **API design** with proper validation and error handling
-
-### Technical Highlights
-
-- **Base62 Algorithm**: Efficient URL shortening with collision prevention
-- **Repository Pattern**: Clean data access layer
-- **Service Layer**: Business logic separation
-- **Type Safety**: Runtime validation with Zod
-- **Testing**: Comprehensive test coverage
-- **Code Quality**: Automated linting and formatting
-
 ---
 
-⭐ **Star this repository if you found it helpful!**
+**Built with ❤️ using modern TypeScript and clean architecture principles.**
 
 For questions or collaboration, reach out at [your-email@example.com]

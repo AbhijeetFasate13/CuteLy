@@ -6,6 +6,7 @@ import redis from "../config/redis";
 // Helper to spy on repository
 import sinon from "sinon";
 import { UrlRepository } from "../repositories/url.repository";
+import * as base62Util from "../utils/base62.util";
 
 describe("UrlService", () => {
   const service = new UrlService();
@@ -56,5 +57,148 @@ describe("UrlService", () => {
     expect(result).to.equal(cachedUrl);
     assert.isFalse(repoSpy.called, "Repo should not be called on cache hit");
     repoSpy.restore();
+  });
+
+  it("should return the same short URL for the same long URL", async () => {
+    // Reset Redis mocks for this test
+    redis.get = async () => null;
+    redis.set = async () => "OK";
+    // Arrange
+    const originalUrl = "https://example.com/same-url";
+    const expectedSlug = base62Util.toBase62(1); // Use the real function
+    const mockExistingUrl = {
+      id: 1,
+      originalUrl,
+      slug: expectedSlug,
+      hitCount: 0,
+      createdAt: new Date(),
+      lastAccessedAt: null,
+    };
+
+    // Mock the repository to simulate finding an existing URL
+    const findByOriginalUrlStub = sinon.stub(
+      UrlRepository.prototype,
+      "findByOriginalUrl",
+    );
+    findByOriginalUrlStub.onFirstCall().resolves(null); // First call: URL doesn't exist
+    findByOriginalUrlStub.onSecondCall().resolves(mockExistingUrl); // Second call: URL exists
+
+    const createUrlStub = sinon.stub(UrlRepository.prototype, "createUrl");
+    createUrlStub.resolves({
+      id: 1,
+      originalUrl,
+      slug: "",
+      hitCount: 0,
+      createdAt: new Date(),
+      lastAccessedAt: null,
+    });
+
+    const updateSlugStub = sinon.stub(UrlRepository.prototype, "updateSlug");
+    updateSlugStub.resolves(mockExistingUrl);
+
+    try {
+      // Act - First call (creates new URL)
+      const firstResult = await service.shortenUrl(originalUrl);
+
+      // Act - Second call (should return existing URL)
+      const secondResult = await service.shortenUrl(originalUrl);
+
+      // Assert
+      expect(firstResult.slug).to.equal(expectedSlug);
+      expect(secondResult.slug).to.equal(expectedSlug);
+      expect(firstResult.slug).to.equal(secondResult.slug);
+
+      // Verify that createUrl was only called once (for the first call)
+      assert.isTrue(
+        createUrlStub.calledOnce,
+        "createUrl should only be called once",
+      );
+      assert.isTrue(
+        findByOriginalUrlStub.calledTwice,
+        "findByOriginalUrl should be called twice",
+      );
+    } finally {
+      // Clean up stubs
+      findByOriginalUrlStub.restore();
+      createUrlStub.restore();
+      updateSlugStub.restore();
+    }
+  });
+
+  it("should use cache for repeated shorten requests for the same long URL", async () => {
+    const originalUrl = "https://example.com/cached-url";
+    const expectedSlug = base62Util.toBase62(2);
+
+    // First call: cache miss, so DB is hit
+    const cache: Record<string, string> = {};
+    redis.get = async (key: string) => cache[key] || null;
+    redis.set = async (key: string, value: string) => {
+      cache[key] = value;
+      return "OK";
+    };
+
+    // Mock repository for DB lookup and creation
+    const findByOriginalUrlStub = sinon.stub(
+      UrlRepository.prototype,
+      "findByOriginalUrl",
+    );
+    findByOriginalUrlStub.onFirstCall().resolves(null); // Not in DB
+    findByOriginalUrlStub.onSecondCall().resolves({
+      id: 2,
+      originalUrl,
+      slug: expectedSlug,
+      hitCount: 0,
+      createdAt: new Date(),
+      lastAccessedAt: null,
+    }); // In DB
+
+    const createUrlStub = sinon.stub(UrlRepository.prototype, "createUrl");
+    createUrlStub.resolves({
+      id: 2,
+      originalUrl,
+      slug: "",
+      hitCount: 0,
+      createdAt: new Date(),
+      lastAccessedAt: null,
+    });
+
+    const updateSlugStub = sinon.stub(UrlRepository.prototype, "updateSlug");
+    updateSlugStub.resolves({
+      id: 2,
+      originalUrl,
+      slug: expectedSlug,
+      hitCount: 0,
+      createdAt: new Date(),
+      lastAccessedAt: null,
+    });
+
+    try {
+      // First call: should hit DB and set cache
+      const firstResult = await service.shortenUrl(originalUrl);
+      expect(firstResult.slug).to.equal(expectedSlug);
+      expect(cache[`long:${originalUrl}`]).to.equal(expectedSlug);
+      // Second call: should hit cache, not DB
+      findByOriginalUrlStub.resetHistory();
+      createUrlStub.resetHistory();
+      updateSlugStub.resetHistory();
+      const secondResult = await service.shortenUrl(originalUrl);
+      expect(secondResult.slug).to.equal(expectedSlug);
+      assert.isTrue(
+        findByOriginalUrlStub.notCalled,
+        "DB should not be called on cache hit",
+      );
+      assert.isTrue(
+        createUrlStub.notCalled,
+        "createUrl should not be called on cache hit",
+      );
+      assert.isTrue(
+        updateSlugStub.notCalled,
+        "updateSlug should not be called on cache hit",
+      );
+    } finally {
+      findByOriginalUrlStub.restore();
+      createUrlStub.restore();
+      updateSlugStub.restore();
+    }
   });
 });

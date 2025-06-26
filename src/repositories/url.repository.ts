@@ -26,6 +26,12 @@ export class UrlRepository {
     });
   }
 
+  async findByOriginalUrl(originalUrl: string) {
+    return prisma.url.findFirst({
+      where: { originalUrl },
+    });
+  }
+
   async incrementHitCount(slug: string) {
     return prisma.url.update({
       where: { slug },
