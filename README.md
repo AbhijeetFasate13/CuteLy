@@ -1,4 +1,4 @@
-# 🚀 CuteLy - Production-Grade URL Shortener
+# CuteLy - Production-Grade URL Shortener
 
 A scalable, high-performance URL shortener built with modern TypeScript, Node.js, and PostgreSQL. Designed with clean architecture principles, comprehensive testing, and production-ready practices.
 
@@ -9,7 +9,7 @@ A scalable, high-performance URL shortener built with modern TypeScript, Node.js
 ![Express](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge&logo=express&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 This project demonstrates **Clean Architecture** principles with clear separation of concerns:
 
@@ -72,20 +72,20 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 
 ### Production Features
 
-- ✅ **Clean Architecture**: Modular, testable, and maintainable codebase
-- ✅ **Error Handling**: Comprehensive error handling with proper HTTP status codes
-- ✅ **Input Validation**: Zod schemas for all API endpoints
-- ✅ **Code Quality**: Automated linting, formatting, and pre-commit hooks
-- ✅ **Testing**: Unit tests with Mocha and Chai
-- ✅ **Database Migrations**: Prisma migrations for schema versioning
-- ✅ **Environment Configuration**: Secure environment variable management
-- ✅ **Structured Logging**: Winston-based logging with file and console output
-- ✅ **API Documentation**: Interactive Swagger documentation
-- ✅ **Health Monitoring**: Comprehensive health checks for all services
-- ✅ **Security Headers**: Helmet.js for security best practices
-- ✅ **Rate Limiting**: IP-based rate limiting with Redis
-- ✅ **Caching**: Redis caching for both read and write operations
-- ✅ **Graceful Shutdown**: Proper signal handling for container orchestration
+-  **Clean Architecture**: Modular, testable, and maintainable codebase
+-  **Error Handling**: Comprehensive error handling with proper HTTP status codes
+-  **Input Validation**: Zod schemas for all API endpoints
+-  **Code Quality**: Automated linting, formatting, and pre-commit hooks
+-  **Testing**: Unit tests with Mocha and Chai
+-  **Database Migrations**: Prisma migrations for schema versioning
+-  **Environment Configuration**: Secure environment variable management
+-  **Structured Logging**: Winston-based logging with file and console output
+-  **API Documentation**: Interactive Swagger documentation
+-  **Health Monitoring**: Comprehensive health checks for all services
+-  **Security Headers**: Helmet.js for security best practices
+-  **Rate Limiting**: IP-based rate limiting with Redis
+-  **Caching**: Redis caching for both read and write operations
+-  **Graceful Shutdown**: Proper signal handling for container orchestration
 
 ### Scalability Considerations
 
@@ -253,7 +253,7 @@ npm run test:with-db
 - **ts-node**: TypeScript support in tests
 - **Database**: Real PostgreSQL for integration testing
 
-## 📊 Monitoring & Observability
+##  Monitoring & Observability
 
 ### Logging
 
@@ -276,7 +276,7 @@ npm run test:with-db
 - **Performance Metrics**: Response time tracking
 - **Rate Limiting**: IP-based rate limit monitoring
 
-## 🔒 Security Features
+##  Security Features
 
 - **Security Headers**: Helmet.js for security best practices
 - **CORS Configuration**: Configurable cross-origin resource sharing
@@ -285,7 +285,7 @@ npm run test:with-db
 - **Request Size Limits**: Protection against large payloads
 - **Error Sanitization**: Safe error messages in production
 
-## 🚀 Deployment
+##  Deployment
 
 ### Railway Deployment
 
@@ -311,7 +311,7 @@ PORT=3000
 - **Idempotent Operations**: Prevents duplicate URL creation
 - **Rate Limiting**: Prevents abuse and ensures fair usage
 
-## 🤝 Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -328,4 +328,4 @@ This project is licensed under the ISC License.
 
 **Built with ❤️ using modern TypeScript and clean architecture principles.**
 
-For questions or collaboration, reach out at [your-email@example.com]
+For questions or collaboration, reach out at [fasateabhijeet13@gmail.com]
