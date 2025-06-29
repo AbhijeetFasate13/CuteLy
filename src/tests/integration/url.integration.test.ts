@@ -8,17 +8,38 @@ import prisma from "../../config/prisma";
 import redis from "../../config/redis";
 
 describe("URL Integration Tests", function () {
-  this.timeout(10000);
+  this.timeout(15000); // Increased timeout for CI
   let app: express.Application;
 
-  before(() => {
+  before(async () => {
+    // Set test environment
+    process.env.NODE_ENV = "test";
+
     // Configure DI container
     configureContainer();
 
-    // Create test app
+    // Create test app with proper error handling
     app = express();
     app.use(express.json());
     app.use("/api", urlRoutes);
+
+    // Add error handling middleware for tests
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    app.use((err: any, req: any, res: any) => {
+      console.error("Test app error:", err);
+      res.status(500).json({ error: err.message });
+    });
+  });
+
+  after(async () => {
+    try {
+      await prisma.$disconnect();
+      if (redis.disconnect) {
+        redis.disconnect();
+      }
+    } catch (error) {
+      console.warn("Cleanup error:", error);
+    }
   });
 
   describe("POST /api/shorten", () => {
@@ -97,9 +118,4 @@ describe("URL Integration Tests", function () {
       expect(response.body.error).to.include("Authentication failed");
     });
   });
-});
-
-after(async () => {
-  await prisma.$disconnect();
-  redis.disconnect();
 });

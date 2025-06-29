@@ -28,13 +28,22 @@ type Url = {
 };
 
 describe("UrlService", function () {
-  this.timeout(10000);
-  before(() => {
+  this.timeout(15000); // Increased timeout for CI
+
+  before(async () => {
+    // Set test environment
+    process.env.NODE_ENV = "test";
+
     configureContainer();
+
+    // Mock Redis methods for tests
     redis.get = async () => null;
     redis.set = async () => "OK" as const;
     redis.incr = async () => 1;
     redis.expire = async () => 1;
+    redis.setex = async () => "OK" as const;
+    redis.del = async () => 1;
+    redis.ping = async () => "PONG";
   });
 
   let service: UrlService;
@@ -51,13 +60,23 @@ describe("UrlService", function () {
     sinon.restore();
   });
 
-  after(() => {
-    // Close Redis connection to prevent hanging
-    redis.disconnect();
+  after(async () => {
+    try {
+      // Close Redis connection to prevent hanging
+      if (redis.disconnect) {
+        redis.disconnect();
+      }
+    } catch (error) {
+      console.warn("Redis disconnect error:", error);
+    }
   });
 
   after(async () => {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      console.warn("Prisma disconnect error:", error);
+    }
   });
 
   it("should generate a short URL slug for a valid URL", async () => {

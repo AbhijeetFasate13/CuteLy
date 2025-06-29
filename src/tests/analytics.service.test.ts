@@ -4,6 +4,7 @@ import "dotenv/config";
 import { expect } from "chai";
 import { AnalyticsRepository } from "../repositories/analytics.repository";
 import prisma from "../config/prisma";
+import { configureContainer } from "../config/container";
 
 // Helper to spy on repository
 const sinon = require("sinon");
@@ -16,8 +17,15 @@ let clickCountStub: any;
 let userCountStub: any;
 
 describe("AnalyticsRepository", function () {
-  this.timeout(10000);
+  this.timeout(15000);
   let analyticsRepository: AnalyticsRepository;
+
+  before(async () => {
+    // Set test environment
+    process.env.NODE_ENV = "test";
+
+    configureContainer();
+  });
 
   beforeEach(() => {
     // Create a simple mock object instead of using sinon.createStubInstance

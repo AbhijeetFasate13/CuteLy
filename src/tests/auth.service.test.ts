@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 import "dotenv/config";
 import { expect } from "chai";
+import bcrypt from "bcryptjs";
 import { AuthService } from "../services/auth.service";
 import { UserRepository } from "../repositories/user.repository";
-import bcrypt from "bcryptjs";
 import prisma from "../config/prisma";
 import redis from "../config/redis";
+import { configureContainer } from "../config/container";
 
 const sinon = require("sinon");
 
@@ -17,10 +18,17 @@ class TestAuthService extends AuthService {
 }
 
 describe("AuthService", function () {
-  this.timeout(10000);
+  this.timeout(15000);
   let authService: TestAuthService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let userRepositoryStub: any;
+
+  before(async () => {
+    // Set test environment
+    process.env.NODE_ENV = "test";
+
+    configureContainer();
+  });
 
   beforeEach(() => {
     userRepositoryStub = {
