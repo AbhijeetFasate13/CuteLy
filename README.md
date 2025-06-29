@@ -20,10 +20,10 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Validation    │    │   Utilities     │    │   Database      │
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────────────┐
+│   Validation    │    │   Utilities     │    │   Database           │
 │   (Zod DTOs)    │    │  (Base62, etc.) │    │  (Prisma/PostgreSQL) │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+└─────────────────┘    └─────────────────┘    └──────────────────────┘
 ```
 
 ### Key Architectural Decisions
@@ -59,33 +59,33 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - **Package Manager**: npm
 - **Environment**: dotenv
 
-## ✨ Features
+##  Features
 
 ### Core Functionality
 
-- ✅ **URL Shortening**: Convert long URLs to short, memorable slugs
-- ✅ **URL Redirection**: Fast redirects with analytics tracking
-- ✅ **Collision-Free Slugs**: Base62 encoding ensures unique, predictable URLs
-- ✅ **Analytics**: Track hit counts and last access times
-- ✅ **Type Safety**: Full TypeScript coverage with runtime validation
-- ✅ **Idempotent Operations**: Same long URL always returns same short URL
+-  **URL Shortening**: Convert long URLs to short, memorable slugs
+-  **URL Redirection**: Fast redirects with analytics tracking
+-  **Collision-Free Slugs**: Base62 encoding ensures unique, predictable URLs
+-  **Analytics**: Track hit counts and last access times
+-  **Type Safety**: Full TypeScript coverage with runtime validation
+-  **Idempotent Operations**: Same long URL always returns same short URL
 
 ### Production Features
 
--  **Clean Architecture**: Modular, testable, and maintainable codebase
--  **Error Handling**: Comprehensive error handling with proper HTTP status codes
--  **Input Validation**: Zod schemas for all API endpoints
--  **Code Quality**: Automated linting, formatting, and pre-commit hooks
--  **Testing**: Unit tests with Mocha and Chai
--  **Database Migrations**: Prisma migrations for schema versioning
--  **Environment Configuration**: Secure environment variable management
--  **Structured Logging**: Winston-based logging with file and console output
--  **API Documentation**: Interactive Swagger documentation
--  **Health Monitoring**: Comprehensive health checks for all services
--  **Security Headers**: Helmet.js for security best practices
--  **Rate Limiting**: IP-based rate limiting with Redis
--  **Caching**: Redis caching for both read and write operations
--  **Graceful Shutdown**: Proper signal handling for container orchestration
+- **Clean Architecture**: Modular, testable, and maintainable codebase
+- **Error Handling**: Comprehensive error handling with proper HTTP status codes
+- **Input Validation**: Zod schemas for all API endpoints
+- **Code Quality**: Automated linting, formatting, and pre-commit hooks
+- **Testing**: Unit tests with Mocha and Chai
+- **Database Migrations**: Prisma migrations for schema versioning
+- **Environment Configuration**: Secure environment variable management
+- **Structured Logging**: Winston-based logging with file and console output
+- **API Documentation**: Interactive Swagger documentation
+- **Health Monitoring**: Comprehensive health checks for all services
+- **Security Headers**: Helmet.js for security best practices
+- **Rate Limiting**: IP-based rate limiting with Redis
+- **Caching**: Redis caching for both read and write operations
+- **Graceful Shutdown**: Proper signal handling for container orchestration
 
 ### Scalability Considerations
 
@@ -96,7 +96,7 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - **Horizontal Scaling**: Stateless design allows easy scaling
 - **Monitoring**: Comprehensive logging and health checks
 
-## 📚 API Documentation
+##  API Documentation
 
 ### Interactive Documentation
 
@@ -167,7 +167,7 @@ Comprehensive health check for all services.
 }
 ```
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 
@@ -227,7 +227,7 @@ PORT=3000
 NODE_ENV=development
 ```
 
-## 🧪 Testing
+## Testing
 
 The project includes comprehensive testing setup:
 
@@ -253,7 +253,7 @@ npm run test:with-db
 - **ts-node**: TypeScript support in tests
 - **Database**: Real PostgreSQL for integration testing
 
-##  Monitoring & Observability
+## Monitoring & Observability
 
 ### Logging
 
@@ -276,7 +276,7 @@ npm run test:with-db
 - **Performance Metrics**: Response time tracking
 - **Rate Limiting**: IP-based rate limit monitoring
 
-##  Security Features
+## Security Features
 
 - **Security Headers**: Helmet.js for security best practices
 - **CORS Configuration**: Configurable cross-origin resource sharing
@@ -285,7 +285,7 @@ npm run test:with-db
 - **Request Size Limits**: Protection against large payloads
 - **Error Sanitization**: Safe error messages in production
 
-##  Deployment
+## Deployment
 
 ### Railway Deployment
 
@@ -303,7 +303,7 @@ NODE_ENV=production
 PORT=3000
 ```
 
-## 📈 Performance Optimizations
+## Performance Optimizations
 
 - **Redis Caching**: Both read and write path optimization
 - **Database Indexing**: Optimized queries with proper indexes
@@ -311,7 +311,7 @@ PORT=3000
 - **Idempotent Operations**: Prevents duplicate URL creation
 - **Rate Limiting**: Prevents abuse and ensures fair usage
 
-##  Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -320,7 +320,7 @@ PORT=3000
 5. Ensure all tests pass
 6. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the ISC License.
 

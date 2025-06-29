@@ -7,11 +7,95 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  urls      Url[]
+  clicks    Click[]
+  
+  @@map("users")
+}
+
 model Url {
-  slug           String    @unique
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
   originalUrl    String
-  createdAt      DateTime  @default(now())
-  hitCount       Int       @default(0)
+  title          String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  hitCount       Int      @default(0)
   lastAccessedAt DateTime?
-  id             Int       @id @default(autoincrement())
+  
+  // User relationship
+  userId         Int?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Analytics relations
+  clicks         Click[]
+  
+  @@map("urls")
+}
+
+model Click {
+  id        Int      @id @default(autoincrement())
+  urlId     Int
+  url       Url      @relation(fields: [urlId], references: [id], onDelete: Cascade)
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Click metadata
+  ipAddress     String?
+  userAgent     String?
+  referrer      String?
+  country       String?
+  city          String?
+  region        String?
+  timezone      String?
+  deviceType    String? // mobile, desktop, tablet
+  browser       String?
+  os            String?
+  language      String?
+  clickedAt     DateTime @default(now())
+  
+  @@map("clicks")
+}
+
+model Analytics {
+  id            Int      @id @default(autoincrement())
+  urlId         Int
+  
+  // Daily aggregated data
+  date          DateTime @db.Date
+  totalClicks   Int      @default(0)
+  uniqueClicks  Int      @default(0)
+  
+  // Geographic data
+  topCountries  Json? // {country: count}
+  topCities     Json? // {city: count}
+  
+  // Device data
+  deviceTypes   Json? // {deviceType: count}
+  browsers      Json? // {browser: count}
+  operatingSystems Json? // {os: count}
+  
+  // Referrer data
+  topReferrers  Json? // {referrer: count}
+  
+  // Time data
+  hourlyClicks  Json? // {hour: count}
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([urlId, date])
+  @@map("analytics")
 }

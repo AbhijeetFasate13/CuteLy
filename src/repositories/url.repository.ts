@@ -1,9 +1,20 @@
 import prisma from "../config/prisma";
 
 export class UrlRepository {
-  async createUrl(originalUrl: string) {
+  async createUrl(
+    originalUrl: string,
+    userId?: number,
+    title?: string,
+    description?: string,
+  ) {
     return prisma.url.create({
-      data: { originalUrl, slug: "" },
+      data: {
+        originalUrl,
+        slug: "",
+        userId,
+        title,
+        description,
+      },
     });
   }
 
@@ -49,6 +60,19 @@ export class UrlRepository {
         hitCount: { increment: 1 },
         lastAccessedAt: new Date(),
       },
+    });
+  }
+
+  async getUserUrls(userId: number) {
+    return prisma.url.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async deleteUrl(id: number) {
+    return prisma.url.delete({
+      where: { id },
     });
   }
 }

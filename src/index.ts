@@ -4,6 +4,8 @@ import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import urlRoutes from "./routes/url.routes";
 import healthRoutes from "./routes/health.routes";
+import authRoutes from "./routes/auth.routes";
+import analyticsRoutes from "./routes/analytics.routes";
 import { specs } from "./config/swagger";
 import logger from "./config/logger";
 
@@ -47,6 +49,13 @@ app.get("/", (_req, res) => {
     version: process.env.npm_package_version || "1.0.0",
     healthCheck: "/health",
     documentation: "/api-docs",
+    features: [
+      "URL shortening with custom slugs",
+      "User authentication and management",
+      "Comprehensive analytics and tracking",
+      "Redis caching for performance",
+      "Rate limiting and security",
+    ],
   });
 });
 
@@ -62,6 +71,12 @@ app.use(
 
 // Health check routes
 app.use(healthRoutes);
+
+// Authentication routes
+app.use(authRoutes);
+
+// Analytics routes
+app.use(analyticsRoutes);
 
 // API routes
 app.use(urlRoutes);
@@ -90,6 +105,12 @@ const server = app.listen(PORT, () => {
   logger.info(`📊 Health check available at http://localhost:${PORT}/health`);
   logger.info(
     `📚 API Documentation available at http://localhost:${PORT}/api-docs`,
+  );
+  logger.info(
+    `🔐 Authentication endpoints available at http://localhost:${PORT}/api/auth`,
+  );
+  logger.info(
+    `📈 Analytics endpoints available at http://localhost:${PORT}/api/analytics`,
   );
 });
 
