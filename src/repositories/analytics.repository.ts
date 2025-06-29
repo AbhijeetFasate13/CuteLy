@@ -1,4 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import prismaClient from "config/prisma";
+
+interface ClickData {
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  referrer?: string | null;
+  country?: string | null;
+  city?: string | null;
+  region?: string | null;
+  timezone?: string | null;
+  deviceType?: string | null;
+  browser?: string | null;
+  os?: string | null;
+  language?: string | null;
+}
 
 export class AnalyticsRepository {
   private prisma;
@@ -14,23 +29,7 @@ export class AnalyticsRepository {
    * @param clickData - Detailed information about the click
    * @returns Promise with the created click record
    */
-  async trackClick(
-    urlId: number,
-    userId: number | null,
-    clickData: {
-      ipAddress?: string;
-      userAgent?: string;
-      referrer?: string;
-      country?: string;
-      city?: string;
-      region?: string;
-      timezone?: string;
-      deviceType?: string;
-      browser?: string;
-      os?: string;
-      language?: string;
-    },
-  ) {
+  async trackClick(urlId: number, userId: number | null, clickData: ClickData) {
     return this.prisma.click.create({
       data: {
         urlId,
@@ -239,13 +238,13 @@ export class AnalyticsRepository {
    * @returns Object with field values as keys and counts as values
    */
   private aggregateByField(
-    clicks: any[],
+    clicks: ClickData[],
     fieldName: string,
   ): Record<string, number> {
     const aggregation: Record<string, number> = {};
 
     clicks.forEach((click) => {
-      const value = click[fieldName];
+      const value = (click as any)[fieldName];
       if (value) {
         aggregation[value] = (aggregation[value] || 0) + 1;
       }

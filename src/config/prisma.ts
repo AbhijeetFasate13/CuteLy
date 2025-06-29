@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PrismaClient } from "@prisma/client";
 import logger from "./logger";
 
@@ -24,7 +25,7 @@ const prisma = new PrismaClient({
 
 // Log database queries in development
 if (process.env.NODE_ENV === "development") {
-  prisma.$on("query", (e) => {
+  prisma.$on("query", (e: any) => {
     logger.debug("Database query", {
       query: e.query,
       params: e.params,
@@ -34,7 +35,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Log database errors
-prisma.$on("error", (e) => {
+prisma.$on("error", (e: any) => {
   logger.error("Database error", {
     error: e.message,
     target: e.target,
@@ -42,12 +43,12 @@ prisma.$on("error", (e) => {
 });
 
 // Log database info
-prisma.$on("info", (e) => {
+prisma.$on("info", (e: any) => {
   logger.info("Database info", { message: e.message });
 });
 
 // Log database warnings
-prisma.$on("warn", (e) => {
+prisma.$on("warn", (e: any) => {
   logger.warn("Database warning", { message: e.message });
 });
 

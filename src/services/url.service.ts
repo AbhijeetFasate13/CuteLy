@@ -28,6 +28,31 @@ export class UrlService {
     description?: string,
   ) {
     try {
+      // Check cache first for anonymous URLs
+      if (!userId) {
+        const cachedSlug = await this.getCachedLongUrl(originalUrl);
+        if (cachedSlug) {
+          logger.info("Returning cached slug for long URL", {
+            originalUrl,
+            slug: cachedSlug,
+          });
+          // Return a proper Url object structure
+          return {
+            id: 0, // Placeholder since we don't have the actual ID
+            originalUrl,
+            slug: cachedSlug,
+            hitCount: 0,
+            createdAt: new Date(),
+            lastAccessedAt: null,
+            userId: null,
+            title: null,
+            description: null,
+            isActive: true,
+            updatedAt: new Date(),
+          };
+        }
+      }
+
       // Check if URL already exists for this user (or globally if no user)
       const existingUrl =
         await this.urlRepository.findByOriginalUrl(originalUrl);
@@ -75,6 +100,8 @@ export class UrlService {
       if (!userId) {
         // Only cache anonymous URLs to avoid conflicts
         await this.cacheUrlMapping(slug, originalUrl);
+        // Also cache the long URL to slug mapping for repeated requests
+        await this.cacheLongUrlMapping(originalUrl, slug);
       }
 
       logger.info("URL shortened successfully", {
@@ -261,6 +288,28 @@ export class UrlService {
   }
 
   /**
+   * Cache a long URL to slug mapping for repeated requests
+   * @param originalUrl - The original long URL
+   * @param slug - The short URL slug
+   */
+  private async cacheLongUrlMapping(
+    originalUrl: string,
+    slug: string,
+  ): Promise<void> {
+    try {
+      const cacheKey = `long:${originalUrl}`;
+      await redis.setex(cacheKey, 3600, slug); // Cache for 1 hour
+
+      logger.debug("Long URL cached successfully", { originalUrl, slug });
+    } catch (error) {
+      logger.warn("Failed to cache long URL", {
+        originalUrl,
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
    * Get a URL from cache
    * @param slug - The short URL slug
    * @returns Promise with cached URL or null
@@ -326,9 +375,9 @@ export class UrlService {
         urlRecord.id,
         clickData?.userId || null,
         {
-          ipAddress: clickData?.ipAddress,
-          userAgent: clickData?.userAgent,
-          referrer: clickData?.referrer,
+          ipAddress: clickData?.ipAddress || null,
+          userAgent: clickData?.userAgent || null,
+          referrer: clickData?.referrer || null,
         },
       );
 
@@ -342,6 +391,30 @@ export class UrlService {
         slug,
         error: (error as Error).message,
       });
+    }
+  }
+
+  /**
+   * Get a long URL from cache
+   * @param originalUrl - The original long URL
+   * @returns Promise with cached slug or null
+   */
+  private async getCachedLongUrl(originalUrl: string): Promise<string | null> {
+    try {
+      const cacheKey = `long:${originalUrl}`;
+      const cachedSlug = await redis.get(cacheKey);
+
+      if (cachedSlug) {
+        logger.debug("Long URL retrieved from cache", { originalUrl });
+      }
+
+      return cachedSlug;
+    } catch (error) {
+      logger.warn("Failed to get long URL from cache", {
+        originalUrl,
+        error: (error as Error).message,
+      });
+      return null;
     }
   }
 }

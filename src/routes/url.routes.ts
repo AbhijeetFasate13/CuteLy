@@ -6,6 +6,7 @@ import {
   deleteUrl,
 } from "../controllers/url.controller";
 import { authenticateToken, optionalAuth } from "../middleware/auth.middleware";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
@@ -63,9 +64,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/api/shorten", optionalAuth, (req, res) => {
-  shortenUrl(req, res);
-});
+router.post("/api/shorten", optionalAuth, asyncHandler(shortenUrl));
 
 /**
  * @swagger
@@ -93,9 +92,7 @@ router.post("/api/shorten", optionalAuth, (req, res) => {
  *       401:
  *         description: Authentication required
  */
-router.get("/api/urls", authenticateToken, (req, res) => {
-  getUserUrls(req, res);
-});
+router.get("/api/urls", authenticateToken, asyncHandler(getUserUrls));
 
 /**
  * @swagger
@@ -130,9 +127,7 @@ router.get("/api/urls", authenticateToken, (req, res) => {
  *       404:
  *         description: URL not found
  */
-router.delete("/api/urls/:slug", authenticateToken, (req, res) => {
-  deleteUrl(req, res);
-});
+router.delete("/api/urls/:slug", authenticateToken, asyncHandler(deleteUrl));
 
 /**
  * @swagger
@@ -153,8 +148,6 @@ router.delete("/api/urls/:slug", authenticateToken, (req, res) => {
  *       404:
  *         description: URL not found
  */
-router.get("/:slug", (req, res) => {
-  redirectToUrl(req, res);
-});
+router.get("/:slug", asyncHandler(redirectToUrl));
 
 export default router;

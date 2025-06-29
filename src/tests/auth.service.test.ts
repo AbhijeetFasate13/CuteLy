@@ -1,19 +1,23 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 import "dotenv/config";
 import { expect } from "chai";
 import { AuthService } from "../services/auth.service";
 import { UserRepository } from "../repositories/user.repository";
-import sinon from "sinon";
 import bcrypt from "bcryptjs";
 
+const sinon = require("sinon");
+
 describe("AuthService", () => {
-  let userRepository: UserRepository;
   let authService: AuthService;
-  let userRepositoryStub: sinon.SinonStubbedInstance<UserRepository>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let userRepositoryStub: any;
 
   beforeEach(() => {
     authService = new AuthService();
     userRepositoryStub = sinon.createStubInstance(UserRepository);
-    (authService as any).userRepository = userRepositoryStub;
+    (
+      authService as unknown as { userRepository: UserRepository }
+    ).userRepository = userRepositoryStub;
   });
 
   afterEach(() => {
@@ -45,8 +49,8 @@ describe("AuthService", () => {
       expect(result.user.email).to.equal(email);
       expect(result.user.name).to.equal(name);
       expect(result.token).to.be.a("string");
-      userRepositoryStub.findByEmail.calledOnceWith(email);
-      userRepositoryStub.createUser.calledOnce;
+      expect(userRepositoryStub.findByEmail.calledOnceWith(email)).to.be.true;
+      expect(userRepositoryStub.createUser.calledOnce).to.be.true;
     });
 
     it("should throw error if user already exists", async () => {
@@ -96,9 +100,9 @@ describe("AuthService", () => {
 
       // Assert
       const createUserCall = userRepositoryStub.createUser.getCall(0);
-      const storedPassword = createUserCall.args[1];
-      expect(storedPassword).to.not.equal(password);
-      expect(await bcrypt.compare(password, storedPassword)).to.be.true;
+      const userData = createUserCall.args[0];
+      expect(userData.password).to.not.equal(password);
+      expect(await bcrypt.compare(password, userData.password)).to.be.true;
     });
   });
 
@@ -125,7 +129,7 @@ describe("AuthService", () => {
       // Assert
       expect(result.user.email).to.equal(email);
       expect(result.token).to.be.a("string");
-      userRepositoryStub.findByEmail.calledOnceWith(email);
+      expect(userRepositoryStub.findByEmail.calledOnceWith(email)).to.be.true;
     });
 
     it("should throw error for invalid email", async () => {
@@ -222,11 +226,13 @@ describe("AuthService", () => {
 
       // Assert
       expect(result.message).to.equal("Password updated successfully");
-      userRepositoryStub.updateUser.calledOnce;
+      expect(userRepositoryStub.updateUser.calledOnce).to.be.true;
 
       const updateCall = userRepositoryStub.updateUser.getCall(0);
-      const updatedPassword = updateCall.args[1].password;
-      expect(await bcrypt.compare(newPassword, updatedPassword)).to.be.true;
+      const updateData = updateCall.args[1];
+      expect(updateData.password).to.exist;
+      expect(await bcrypt.compare(newPassword, updateData.password!)).to.be
+        .true;
     });
 
     it("should throw error for incorrect current password", async () => {
@@ -274,12 +280,24 @@ describe("AuthService", () => {
         updatedAt: new Date(),
       });
 
+      userRepositoryStub.updateUser.resolves({
+        id: userId,
+        email: "test@example.com",
+        name: newName,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isActive: true,
+        password: "hashedPassword",
+      });
+
       // Act
       const result = await authService.updateProfile(userId, newName);
 
       // Assert
       expect(result.user.name).to.equal(newName);
-      userRepositoryStub.updateUser.calledOnceWith(userId, { name: newName });
+      expect(
+        userRepositoryStub.updateUser.calledOnceWith(userId, { name: newName }),
+      ).to.be.true;
     });
   });
 

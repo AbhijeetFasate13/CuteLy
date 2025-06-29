@@ -1,9 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import { UrlService } from "../services/url.service";
 import logger from "../config/logger";
 
 // Extend Express Request to include user information from JWT
-interface AuthRequest extends Request {
+interface AuthRequest extends Omit<Request, "get"> {
+  protocol: string;
+  get(name: string): string | string[] | undefined;
+  body: any;
+  params: any;
   user?: {
     id: number;
     email: string;
@@ -20,41 +25,28 @@ export class UrlController {
 
   /**
    * Shorten a URL and optionally associate it with the authenticated user
-   * @param req - Express request with URL data and optional user authentication
-   * @param res - Express response
    */
-  async shortenUrl(req: AuthRequest, res: Response) {
+  async shortenUrl(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { url, title, description } = req.body;
-      const userId = req.user?.id; // Get user ID from JWT token if authenticated
-
-      // Validate required fields
+      const userId = req.user?.id;
       if (!url) {
-        return res.status(400).json({
-          error: "URL is required",
-        });
+        (res as any).status(400).json({ error: "URL is required" });
+        return;
       }
-
-      // Basic URL format validation
       try {
         new URL(url);
       } catch {
-        return res.status(400).json({
-          error: "Invalid URL format",
-        });
+        (res as any).status(400).json({ error: "Invalid URL format" });
+        return;
       }
-
-      // Create shortened URL
       const result = await this.urlService.shortenUrl(
         url,
         userId,
         title,
         description,
       );
-
-      // Construct the full short URL
       const shortUrl = `${req.protocol}://${req.get("host")}/${result.slug}`;
-
       logger.info("URL shortened successfully", {
         originalUrl: url,
         slug: result.slug,
@@ -62,9 +54,7 @@ export class UrlController {
         title,
         description,
       });
-
-      // Return the shortened URL details
-      res.json({
+      (res as any).json({
         slug: result.slug,
         shortUrl,
         originalUrl: url,
@@ -75,183 +65,119 @@ export class UrlController {
       logger.error("URL shortening failed", {
         error: (error as Error).message,
       });
-      res.status(500).json({
-        error: "Failed to shorten URL",
-      });
+      (res as any).status(500).json({ error: "Failed to shorten URL" });
     }
   }
 
   /**
    * Redirect to the original URL when a short URL is accessed
-   * @param req - Express request with slug parameter
-   * @param res - Express response
    */
-  async redirectToUrl(req: Request, res: Response) {
+  async redirectToUrl(req: Request, res: Response): Promise<void> {
     try {
-      const { slug } = req.params;
-
-      // Validate slug parameter
+      const { slug } = (req as any).params;
       if (!slug) {
-        return res.status(400).json({
-          error: "Slug is required",
-        });
+        (res as any).status(400).json({ error: "Slug is required" });
+        return;
       }
-
-      // Get original URL and track the click
       const originalUrl = await this.urlService.getOriginalUrl(slug, {
-        ipAddress: req.ip,
-        userAgent: req.get("User-Agent"),
-        referrer: req.get("Referer"),
+        ipAddress: (req as any).ip,
+        userAgent: (req as any).get("User-Agent"),
+        referrer: (req as any).get("Referer"),
       });
-
       logger.info("URL redirect successful", {
         slug,
         originalUrl,
-        userAgent: req.get("User-Agent"),
-        ip: req.ip,
+        userAgent: (req as any).get("User-Agent"),
+        ip: (req as any).ip,
       });
-
-      // Redirect to the original URL
-      res.redirect(originalUrl);
+      (res as any).redirect(originalUrl);
     } catch (error) {
       logger.error("URL redirect failed", {
-        slug: req.params.slug,
+        slug: (req as any).params.slug,
         error: (error as Error).message,
       });
-      res.status(404).json({
-        error: "URL not found",
-      });
+      (res as any).status(404).json({ error: "URL not found" });
     }
   }
 
   /**
    * Get all URLs owned by the authenticated user
-   * @param req - Express request with user authentication
-   * @param res - Express response
    */
-  async getUserUrls(req: AuthRequest, res: Response) {
+  async getUserUrls(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user?.id;
-
-      // Check if user is authenticated
       if (!userId) {
-        return res.status(401).json({
-          error: "Authentication required",
-        });
+        (res as any).status(401).json({ error: "Authentication required" });
+        return;
       }
-
-      // Get user's URLs
       const urls = await this.urlService.getUserUrls(userId);
-
-      logger.info("User URLs retrieved", {
-        userId,
-        count: urls.length,
-      });
-
-      // Return user's URLs
-      res.json({
-        urls,
-        count: urls.length,
-      });
+      logger.info("User URLs retrieved", { userId, count: urls.length });
+      (res as any).json({ urls, count: urls.length });
     } catch (error) {
       logger.error("Get user URLs failed", { error: (error as Error).message });
-      res.status(500).json({
-        error: "Failed to retrieve user URLs",
-      });
+      (res as any).status(500).json({ error: "Failed to retrieve user URLs" });
     }
   }
 
   /**
    * Delete a URL (only if owned by the authenticated user)
-   * @param req - Express request with slug parameter and user authentication
-   * @param res - Express response
    */
-  async deleteUrl(req: AuthRequest, res: Response) {
+  async deleteUrl(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { slug } = req.params;
       const userId = req.user?.id;
-
-      // Check if user is authenticated
       if (!userId) {
-        return res.status(401).json({
-          error: "Authentication required",
-        });
+        (res as any).status(401).json({ error: "Authentication required" });
+        return;
       }
-
-      // Validate slug parameter
       if (!slug) {
-        return res.status(400).json({
-          error: "Slug is required",
-        });
+        (res as any).status(400).json({ error: "Slug is required" });
+        return;
       }
-
-      // Delete the URL (service will check ownership)
       await this.urlService.deleteUrl(slug, userId);
-
-      logger.info("URL deleted successfully", {
-        slug,
-        userId,
-      });
-
-      // Return success message
-      res.json({
-        message: "URL deleted successfully",
-      });
+      logger.info("URL deleted successfully", { slug, userId });
+      (res as any).json({ message: "URL deleted successfully" });
     } catch (error) {
       logger.error("URL deletion failed", {
         slug: req.params.slug,
         error: (error as Error).message,
       });
-
-      // Handle specific error cases
       if ((error as Error).message === "URL not found") {
-        return res.status(404).json({
-          error: "URL not found",
-        });
+        (res as any).status(404).json({ error: "URL not found" });
+        return;
       }
-
       if ((error as Error).message === "Access denied") {
-        return res.status(403).json({
-          error: "Access denied",
-        });
+        (res as any).status(403).json({ error: "Access denied" });
+        return;
       }
-
-      res.status(500).json({
-        error: "Failed to delete URL",
-      });
+      (res as any).status(500).json({ error: "Failed to delete URL" });
     }
   }
 }
 
-// ===== EXPORTED ROUTE HANDLERS =====
-// These are the actual functions used by the routes
-
 const urlController = new UrlController();
 
-/**
- * Route handler for shortening URLs
- */
-export const shortenUrl = (req: AuthRequest, res: Response) => {
-  urlController.shortenUrl(req, res);
+export const shortenUrl = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  await urlController.shortenUrl(req as AuthRequest, res);
 };
 
-/**
- * Route handler for URL redirects
- */
-export const redirectToUrl = (req: Request, res: Response) => {
-  urlController.redirectToUrl(req, res);
+export const redirectToUrl = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  await urlController.redirectToUrl(req, res);
 };
 
-/**
- * Route handler for getting user's URLs
- */
-export const getUserUrls = (req: AuthRequest, res: Response) => {
-  urlController.getUserUrls(req, res);
+export const getUserUrls = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  await urlController.getUserUrls(req as AuthRequest, res);
 };
 
-/**
- * Route handler for deleting URLs
- */
-export const deleteUrl = (req: AuthRequest, res: Response) => {
-  urlController.deleteUrl(req, res);
+export const deleteUrl = async (req: Request, res: Response): Promise<void> => {
+  await urlController.deleteUrl(req as AuthRequest, res);
 };

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -21,7 +22,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Request logging middleware
-app.use((req, res, next) => {
+app.use((req: any, res: any, next: any) => {
   const start = Date.now();
   res.on("finish", () => {
     const duration = Date.now() - start;
@@ -41,7 +42,7 @@ app.use((req, res, next) => {
 });
 
 // Basic health check endpoint (redirects to comprehensive health check)
-app.get("/", (_req, res) => {
+app.get("/", (_req: any, res: any) => {
   res.json({
     status: "OK",
     message: "CuteLy URL Shortener API is running",
@@ -82,22 +83,22 @@ app.use(analyticsRoutes);
 app.use(urlRoutes);
 
 // 404 handler - must be last
-app.use((req, res) => {
+app.use((req: any, res: any) => {
   logger.warn(`Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: "Route not found" });
 });
 
 // Global error handler
-app.use((err: Error, req: express.Request, res: express.Response) => {
+app.use((err: Error, req: any, res: any) => {
   logger.error("Unhandled error", {
     error: err.message,
     stack: err.stack,
-    method: req.method,
-    path: req.path,
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
+    method: (req as any).method,
+    path: (req as any).path,
+    ip: (req as any).ip,
+    userAgent: (req as any).get("User-Agent"),
   });
-  res.status(500).json({ error: "Internal server error" });
+  (res as any).status(500).json({ error: "Internal server error" });
 });
 
 const server = app.listen(PORT, () => {

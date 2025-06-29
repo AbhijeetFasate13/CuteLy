@@ -1,6 +1,7 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { AnalyticsController } from "../controllers/analytics.controller";
 import { authenticateToken, optionalAuth } from "../middleware/auth.middleware";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 const analyticsController = new AnalyticsController();
@@ -34,9 +35,17 @@ const analyticsController = new AnalyticsController();
  *       403:
  *         description: Access denied
  */
-router.get("/api/analytics/url/:slug", optionalAuth, (req, res) => {
-  analyticsController.getUrlAnalytics(req, res);
-});
+router.get(
+  "/api/analytics/url/:slug",
+  optionalAuth,
+  asyncHandler(
+    analyticsController.getUrlAnalytics.bind(analyticsController) as (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => Promise<void>,
+  ),
+);
 
 /**
  * @swagger
@@ -59,9 +68,17 @@ router.get("/api/analytics/url/:slug", optionalAuth, (req, res) => {
  *       401:
  *         description: Authentication required
  */
-router.get("/api/analytics/user", authenticateToken, (req, res) => {
-  analyticsController.getUserAnalytics(req, res);
-});
+router.get(
+  "/api/analytics/user",
+  authenticateToken,
+  asyncHandler(
+    analyticsController.getUserAnalytics.bind(analyticsController) as (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => Promise<void>,
+  ),
+);
 
 /**
  * @swagger
@@ -80,9 +97,16 @@ router.get("/api/analytics/user", authenticateToken, (req, res) => {
  *       200:
  *         description: Global analytics retrieved successfully
  */
-router.get("/api/analytics/global", (req, res) => {
-  analyticsController.getGlobalAnalytics(req, res);
-});
+router.get(
+  "/api/analytics/global",
+  asyncHandler(
+    analyticsController.getGlobalAnalytics.bind(analyticsController) as (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => Promise<void>,
+  ),
+);
 
 /**
  * @swagger
@@ -105,8 +129,16 @@ router.get("/api/analytics/global", (req, res) => {
  *       404:
  *         description: URL not found
  */
-router.post("/api/analytics/track/:slug", optionalAuth, (req, res) => {
-  analyticsController.trackClick(req, res);
-});
+router.post(
+  "/api/analytics/track/:slug",
+  optionalAuth,
+  asyncHandler(
+    analyticsController.trackClick.bind(analyticsController) as (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => Promise<void>,
+  ),
+);
 
 export default router;

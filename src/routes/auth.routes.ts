@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { AuthController } from "../controllers/auth.controller";
 import { authenticateToken } from "../middleware/auth.middleware";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 const authController = new AuthController();
@@ -56,9 +57,10 @@ const authController = new AuthController();
  *       400:
  *         description: Invalid input or user already exists
  */
-router.post("/api/auth/register", (req, res) => {
-  authController.register(req, res);
-});
+router.post(
+  "/api/auth/register",
+  asyncHandler(authController.register.bind(authController)),
+);
 
 /**
  * @swagger
@@ -100,9 +102,10 @@ router.post("/api/auth/register", (req, res) => {
  *       401:
  *         description: Invalid credentials
  */
-router.post("/api/auth/login", (req, res) => {
-  authController.login(req, res);
-});
+router.post(
+  "/api/auth/login",
+  asyncHandler(authController.login.bind(authController)),
+);
 
 /**
  * @swagger
@@ -118,9 +121,11 @@ router.post("/api/auth/login", (req, res) => {
  *       401:
  *         description: Authentication required
  */
-router.get("/api/auth/profile", authenticateToken, (req, res) => {
-  authController.getProfile(req, res);
-});
+router.get(
+  "/api/auth/profile",
+  authenticateToken,
+  asyncHandler(authController.getProfile.bind(authController)),
+);
 
 /**
  * @swagger
@@ -146,9 +151,11 @@ router.get("/api/auth/profile", authenticateToken, (req, res) => {
  *       401:
  *         description: Authentication required
  */
-router.put("/api/auth/profile", authenticateToken, (req, res) => {
-  authController.updateProfile(req, res);
-});
+router.put(
+  "/api/auth/profile",
+  authenticateToken,
+  asyncHandler(authController.updateProfile.bind(authController)),
+);
 
 /**
  * @swagger
@@ -181,8 +188,10 @@ router.put("/api/auth/profile", authenticateToken, (req, res) => {
  *       401:
  *         description: Authentication required or invalid current password
  */
-router.post("/api/auth/change-password", authenticateToken, (req, res) => {
-  authController.changePassword(req, res);
-});
+router.post(
+  "/api/auth/change-password",
+  authenticateToken,
+  asyncHandler(authController.changePassword.bind(authController)),
+);
 
 export default router;

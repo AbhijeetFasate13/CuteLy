@@ -146,9 +146,9 @@ export class AnalyticsController {
 
       // Extract click data from request
       const clickData = {
-        ipAddress: req.ip,
-        userAgent: req.get("User-Agent"),
-        referrer: req.get("Referer"),
+        ipAddress: req.ip || null,
+        userAgent: req.get("User-Agent") || null,
+        referrer: req.get("Referer") || null,
         // Note: For production, you'd want to use a service like MaxMind or IP-API
         // to get geographic and device information
         country: req.get("CF-IPCountry") || null, // Cloudflare header
@@ -162,7 +162,11 @@ export class AnalyticsController {
       };
 
       // Track the click
-      await this.analyticsRepository.trackClick(url.id, userId, clickData);
+      await this.analyticsRepository.trackClick(
+        url.id,
+        userId || null,
+        clickData,
+      );
 
       // Update URL hit count
       await this.urlRepository.incrementHitCount(slug);
