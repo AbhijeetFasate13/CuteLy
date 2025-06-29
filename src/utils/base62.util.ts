@@ -20,3 +20,20 @@ export function toBase10(code: string): number {
   }
   return id;
 }
+
+/**
+ * Generate a random slug for URL shortening
+ * Creates a 6-character random string using base62 characters
+ * @returns Random slug string
+ */
+export function generateSlug(): string {
+  let slug = "";
+
+  // Generate 6 random characters from our base62 set
+  for (let i = 0; i < 6; i++) {
+    const randomIndex = Math.floor(Math.random() * base62Chars.length);
+    slug += base62Chars[randomIndex];
+  }
+
+  return slug;
+}

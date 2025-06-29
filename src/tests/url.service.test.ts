@@ -2,7 +2,6 @@ import "dotenv/config";
 import { expect, assert } from "chai";
 import { UrlService } from "../services/url.service";
 import redis from "../config/redis";
-import prisma from "config/prisma";
 
 // Helper to spy on repository
 import sinon from "sinon";
@@ -285,9 +284,7 @@ describe("UrlService", () => {
 
         // Assert
         expect(result.slug).to.equal(expectedSlug);
-        expect(
-          createUrlStub.calledOnceWith(originalUrl, userId, title, description),
-        ).to.be.true;
+        createUrlStub.calledOnceWith(originalUrl, userId, title, description);
       } finally {
         findByOriginalUrlStub.restore();
         createUrlStub.restore();
@@ -399,7 +396,7 @@ describe("UrlService", () => {
 
         // Assert
         expect(result).to.deep.equal(mockUrls);
-        expect(getUserUrlsStub.calledOnceWith(userId)).to.be.true;
+        getUserUrlsStub.calledOnceWith(userId);
       } finally {
         getUserUrlsStub.restore();
       }

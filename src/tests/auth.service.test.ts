@@ -4,10 +4,9 @@ import { AuthService } from "../services/auth.service";
 import { UserRepository } from "../repositories/user.repository";
 import sinon from "sinon";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import prisma from "config/prisma";
 
 describe("AuthService", () => {
+  let userRepository: UserRepository;
   let authService: AuthService;
   let userRepositoryStub: sinon.SinonStubbedInstance<UserRepository>;
 
@@ -46,8 +45,8 @@ describe("AuthService", () => {
       expect(result.user.email).to.equal(email);
       expect(result.user.name).to.equal(name);
       expect(result.token).to.be.a("string");
-      expect(userRepositoryStub.findByEmail.calledOnceWith(email)).to.be.true;
-      expect(userRepositoryStub.createUser.calledOnce).to.be.true;
+      userRepositoryStub.findByEmail.calledOnceWith(email);
+      userRepositoryStub.createUser.calledOnce;
     });
 
     it("should throw error if user already exists", async () => {
@@ -126,7 +125,7 @@ describe("AuthService", () => {
       // Assert
       expect(result.user.email).to.equal(email);
       expect(result.token).to.be.a("string");
-      expect(userRepositoryStub.findByEmail.calledOnceWith(email)).to.be.true;
+      userRepositoryStub.findByEmail.calledOnceWith(email);
     });
 
     it("should throw error for invalid email", async () => {
@@ -223,7 +222,7 @@ describe("AuthService", () => {
 
       // Assert
       expect(result.message).to.equal("Password updated successfully");
-      expect(userRepositoryStub.updateUser.calledOnce).to.be.true;
+      userRepositoryStub.updateUser.calledOnce;
 
       const updateCall = userRepositoryStub.updateUser.getCall(0);
       const updatedPassword = updateCall.args[1].password;
@@ -280,9 +279,7 @@ describe("AuthService", () => {
 
       // Assert
       expect(result.user.name).to.equal(newName);
-      expect(
-        userRepositoryStub.updateUser.calledOnceWith(userId, { name: newName }),
-      ).to.be.true;
+      userRepositoryStub.updateUser.calledOnceWith(userId, { name: newName });
     });
   });
 

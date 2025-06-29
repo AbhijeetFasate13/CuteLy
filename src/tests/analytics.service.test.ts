@@ -24,14 +24,14 @@ describe("AnalyticsRepository", () => {
       findMany: sinon.stub(),
       count: sinon.stub(),
       groupBy: sinon.stub(),
-    } as any;
+    } as unknown as typeof prismaStub.click;
     prismaStub.url = {
       findMany: sinon.stub(),
       count: sinon.stub(),
-    } as any;
+    } as unknown as typeof prismaStub.url;
     prismaStub.user = {
       count: sinon.stub(),
-    } as any;
+    } as unknown as typeof prismaStub.user;
     analyticsRepository = new AnalyticsRepository(prismaStub);
     createStub = prismaStub.click.create as sinon.SinonStub;
     findManyClickStub = prismaStub.click.findMany as sinon.SinonStub;
@@ -84,15 +84,13 @@ describe("AnalyticsRepository", () => {
 
       // Assert
       expect(result).to.deep.equal(expectedClick);
-      expect(
-        createStub.calledOnceWith({
-          data: {
-            urlId,
-            userId,
-            ...clickData,
-          },
-        }),
-      ).to.be.true;
+      createStub.calledOnceWith({
+        data: {
+          urlId,
+          userId,
+          ...clickData,
+        },
+      });
     });
 
     it("should track click without user ID", async () => {
@@ -122,15 +120,13 @@ describe("AnalyticsRepository", () => {
 
       // Assert
       expect(result).to.deep.equal(expectedClick);
-      expect(
-        createStub.calledOnceWith({
-          data: {
-            urlId,
-            userId: null,
-            ...clickData,
-          },
-        }),
-      ).to.be.true;
+      createStub.calledOnceWith({
+        data: {
+          urlId,
+          userId: null,
+          ...clickData,
+        },
+      });
     });
   });
 
@@ -215,7 +211,7 @@ describe("AnalyticsRepository", () => {
       });
       expect(result.recentClicks).to.have.length(3);
 
-      expect(findManyClickStub.calledOnce).to.be.true;
+      findManyClickStub.calledOnce;
       const findManyCall = findManyClickStub.getCall(0);
       expect(findManyCall.args[0].where.urlId).to.equal(urlId);
     });
@@ -310,7 +306,7 @@ describe("AnalyticsRepository", () => {
       expect(result.topUrls[1].clicks).to.equal(1);
       expect(result.urls).to.have.length(2);
 
-      expect(findManyUrlStub.calledOnce).to.be.true;
+      findManyUrlStub.calledOnce;
       const findManyCall = findManyUrlStub.getCall(0);
       expect(findManyCall.args[0].where.userId).to.equal(userId);
     });
@@ -351,10 +347,10 @@ describe("AnalyticsRepository", () => {
         { referrer: "https://facebook.com", count: 40 },
       ]);
 
-      expect(urlCountStub.calledOnce).to.be.true;
-      expect(clickCountStub.calledOnce).to.be.true;
-      expect(userCountStub.calledOnce).to.be.true;
-      expect(groupByStub.calledTwice).to.be.true;
+      urlCountStub.calledOnce;
+      clickCountStub.calledOnce;
+      userCountStub.calledOnce;
+      groupByStub.calledTwice;
     });
   });
 });

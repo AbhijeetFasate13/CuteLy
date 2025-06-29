@@ -48,8 +48,8 @@ export const authenticateToken = async (
     };
 
     next();
-  } catch (error) {
-    return res.status(403).json({ error: "Invalid or expired token" });
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
   }
 };
 
@@ -88,7 +88,7 @@ export const optionalAuth = async (
     }
 
     next();
-  } catch (error) {
+  } catch {
     next(); // Continue without authentication
   }
 };

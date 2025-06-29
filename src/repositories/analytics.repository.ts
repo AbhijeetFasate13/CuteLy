@@ -2,10 +2,18 @@ import prismaClient from "config/prisma";
 
 export class AnalyticsRepository {
   private prisma;
+
   constructor(prisma = prismaClient) {
     this.prisma = prisma;
   }
 
+  /**
+   * Track a click on a URL with detailed analytics data
+   * @param urlId - The ID of the URL that was clicked
+   * @param userId - Optional user ID if the clicker is logged in
+   * @param clickData - Detailed information about the click
+   * @returns Promise with the created click record
+   */
   async trackClick(
     urlId: number,
     userId: number | null,
@@ -32,15 +40,23 @@ export class AnalyticsRepository {
     });
   }
 
+  /**
+   * Get comprehensive analytics for a specific URL
+   * @param urlId - The ID of the URL to analyze
+   * @param days - Number of days to look back (default: 30)
+   * @returns Promise with detailed analytics data
+   */
   async getUrlAnalytics(urlId: number, days: number = 30) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // Calculate the date threshold for filtering
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - days);
 
+    // Get all clicks for this URL within the time period
     const clicks = await this.prisma.click.findMany({
       where: {
         urlId,
         clickedAt: {
-          gte: startDate,
+          gte: dateThreshold,
         },
       },
       orderBy: {
@@ -48,92 +64,17 @@ export class AnalyticsRepository {
       },
     });
 
-    // Aggregate data
+    // Calculate analytics from the click data
     const totalClicks = clicks.length;
     const uniqueClicks = new Set(clicks.map((click) => click.ipAddress)).size;
 
-    // Geographic data
-    const countries = clicks.reduce(
-      (acc, click) => {
-        if (click.country) {
-          acc[click.country] = (acc[click.country] || 0) + 1;
-        }
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    const cities = clicks.reduce(
-      (acc, click) => {
-        if (click.city) {
-          acc[click.city] = (acc[click.city] || 0) + 1;
-        }
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    // Device data
-    const deviceTypes = clicks.reduce(
-      (acc, click) => {
-        if (click.deviceType) {
-          acc[click.deviceType] = (acc[click.deviceType] || 0) + 1;
-        }
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    const browsers = clicks.reduce(
-      (acc, click) => {
-        if (click.browser) {
-          acc[click.browser] = (acc[click.browser] || 0) + 1;
-        }
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    const operatingSystems = clicks.reduce(
-      (acc, click) => {
-        if (click.os) {
-          acc[click.os] = (acc[click.os] || 0) + 1;
-        }
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    // Referrer data
-    const referrers = clicks.reduce(
-      (acc, click) => {
-        if (click.referrer) {
-          acc[click.referrer] = (acc[click.referrer] || 0) + 1;
-        }
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    // Hourly data
-    const hourlyClicks = clicks.reduce(
-      (acc, click) => {
-        const hour = new Date(click.clickedAt).getHours();
-        acc[hour] = (acc[hour] || 0) + 1;
-        return acc;
-      },
-      {} as Record<number, number>,
-    );
-
-    // Daily data
-    const dailyClicks = clicks.reduce(
-      (acc, click) => {
-        const date = new Date(click.clickedAt).toISOString().split("T")[0];
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
+    // Aggregate data by various dimensions
+    const countries = this.aggregateByField(clicks, "country");
+    const cities = this.aggregateByField(clicks, "city");
+    const deviceTypes = this.aggregateByField(clicks, "deviceType");
+    const browsers = this.aggregateByField(clicks, "browser");
+    const operatingSystems = this.aggregateByField(clicks, "os");
+    const referrers = this.aggregateByField(clicks, "referrer");
 
     return {
       totalClicks,
@@ -144,100 +85,98 @@ export class AnalyticsRepository {
       browsers,
       operatingSystems,
       referrers,
-      hourlyClicks,
-      dailyClicks,
-      recentClicks: clicks.slice(0, 10), // Last 10 clicks
+      recentClicks: clicks.slice(0, 10), // Return last 10 clicks
     };
   }
 
+  /**
+   * Get analytics for all URLs owned by a specific user
+   * @param userId - The user's ID
+   * @param days - Number of days to look back (default: 30)
+   * @returns Promise with user's URL analytics
+   */
   async getUserAnalytics(userId: number, days: number = 30) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // Calculate the date threshold for filtering
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - days);
 
+    // Get all URLs owned by the user with their click data
     const urls = await this.prisma.url.findMany({
       where: {
         userId,
         createdAt: {
-          gte: startDate,
+          gte: dateThreshold,
         },
       },
       include: {
         clicks: {
           where: {
             clickedAt: {
-              gte: startDate,
+              gte: dateThreshold,
             },
           },
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
+    // Calculate totals
     const totalUrls = urls.length;
     const totalClicks = urls.reduce((sum, url) => sum + url.clicks.length, 0);
     const totalUniqueClicks = new Set(
       urls.flatMap((url) => url.clicks.map((click) => click.ipAddress)),
     ).size;
 
-    // Top performing URLs
+    // Get top performing URLs
     const topUrls = urls
       .map((url) => ({
         slug: url.slug,
         originalUrl: url.originalUrl,
-        clicks: url.clicks.length,
         title: url.title,
+        clicks: url.clicks.length,
+        hitCount: url.hitCount,
       }))
       .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 10);
+      .slice(0, 5); // Top 5 URLs
 
     return {
       totalUrls,
       totalClicks,
       totalUniqueClicks,
       topUrls,
-      urls: urls.map((url) => ({
-        id: url.id,
-        slug: url.slug,
-        originalUrl: url.originalUrl,
-        title: url.title,
-        clicks: url.clicks.length,
-        createdAt: url.createdAt,
-      })),
+      urls,
     };
   }
 
+  /**
+   * Get global analytics across all URLs and users
+   * @param days - Number of days to look back (default: 30)
+   * @returns Promise with global analytics data
+   */
   async getGlobalAnalytics(days: number = 30) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    // Calculate the date threshold for filtering
+    const dateThreshold = new Date();
+    dateThreshold.setDate(dateThreshold.getDate() - days);
 
-    const [totalUrls, totalClicks, totalUsers] = await Promise.all([
-      this.prisma.url.count({
-        where: {
-          createdAt: {
-            gte: startDate,
-          },
+    // Get basic counts
+    const totalUrls = await this.prisma.url.count();
+    const totalClicks = await this.prisma.click.count({
+      where: {
+        clickedAt: {
+          gte: dateThreshold,
         },
-      }),
-      this.prisma.click.count({
-        where: {
-          clickedAt: {
-            gte: startDate,
-          },
-        },
-      }),
-      this.prisma.user.count({
-        where: {
-          createdAt: {
-            gte: startDate,
-          },
-        },
-      }),
-    ]);
+      },
+    });
+    const totalUsers = await this.prisma.user.count();
 
+    // Get top countries
     const topCountries = await this.prisma.click.groupBy({
       by: ["country"],
       where: {
         clickedAt: {
-          gte: startDate,
+          gte: dateThreshold,
         },
         country: {
           not: null,
@@ -251,14 +190,15 @@ export class AnalyticsRepository {
           country: "desc",
         },
       },
-      take: 10,
+      take: 5,
     });
 
+    // Get top referrers
     const topReferrers = await this.prisma.click.groupBy({
       by: ["referrer"],
       where: {
         clickedAt: {
-          gte: startDate,
+          gte: dateThreshold,
         },
         referrer: {
           not: null,
@@ -272,7 +212,7 @@ export class AnalyticsRepository {
           referrer: "desc",
         },
       },
-      take: 10,
+      take: 5,
     });
 
     return {
@@ -288,5 +228,29 @@ export class AnalyticsRepository {
         count: item._count.referrer,
       })),
     };
+  }
+
+  // ===== PRIVATE HELPER METHODS =====
+
+  /**
+   * Aggregate click data by a specific field
+   * @param clicks - Array of click records
+   * @param fieldName - The field to aggregate by
+   * @returns Object with field values as keys and counts as values
+   */
+  private aggregateByField(
+    clicks: any[],
+    fieldName: string,
+  ): Record<string, number> {
+    const aggregation: Record<string, number> = {};
+
+    clicks.forEach((click) => {
+      const value = click[fieldName];
+      if (value) {
+        aggregation[value] = (aggregation[value] || 0) + 1;
+      }
+    });
+
+    return aggregation;
   }
 }

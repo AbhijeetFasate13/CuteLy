@@ -1,32 +1,85 @@
-import prisma from "config/prisma";
+import prisma from "../config/prisma";
 
 export class UserRepository {
-  async createUser(email: string, password: string, name?: string) {
+  /**
+   * Create a new user account
+   * @param userData - User registration data
+   * @returns Promise with the created user record
+   */
+  async createUser(userData: {
+    email: string;
+    password: string;
+    name?: string;
+  }) {
     return prisma.user.create({
-      data: {
-        email,
-        password,
-        name,
-      },
+      data: userData,
     });
   }
 
-  async findById(id: number) {
-    return prisma.user.findUnique({
-      where: { id },
-    });
-  }
-
+  /**
+   * Find a user by their email address
+   * @param email - The user's email address
+   * @returns Promise with the user record or null
+   */
   async findByEmail(email: string) {
     return prisma.user.findUnique({
       where: { email },
     });
   }
 
-  async updateUser(id: number, data: { name?: string; isActive?: boolean }) {
+  /**
+   * Find a user by their database ID
+   * @param id - The user's database ID
+   * @returns Promise with the user record or null
+   */
+  async findById(id: number) {
+    return prisma.user.findUnique({
+      where: { id },
+    });
+  }
+
+  /**
+   * Update a user's information
+   * @param id - The user's database ID
+   * @param updateData - The data to update
+   * @returns Promise with the updated user record
+   */
+  async updateUser(
+    id: number,
+    updateData: {
+      email?: string;
+      password?: string;
+      name?: string;
+      isActive?: boolean;
+    },
+  ) {
     return prisma.user.update({
       where: { id },
-      data,
+      data: updateData,
+    });
+  }
+
+  /**
+   * Deactivate a user account
+   * @param id - The user's database ID
+   * @returns Promise with the deactivated user record
+   */
+  async deactivateUser(id: number) {
+    return prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  /**
+   * Reactivate a user account
+   * @param id - The user's database ID
+   * @returns Promise with the reactivated user record
+   */
+  async reactivateUser(id: number) {
+    return prisma.user.update({
+      where: { id },
+      data: { isActive: true },
     });
   }
 
