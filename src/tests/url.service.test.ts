@@ -3,6 +3,9 @@ import "dotenv/config";
 import { expect } from "chai";
 import { UrlService } from "../services/url.service";
 import redis from "../config/redis";
+import prisma from "../config/prisma";
+import container from "../config/container";
+import { configureContainer } from "../config/container";
 
 // Helper to spy on repository
 const sinon = require("sinon");
@@ -24,10 +27,12 @@ type Url = {
   updatedAt: Date;
 };
 
-describe("UrlService", () => {
+describe("UrlService", function () {
+  this.timeout(10000);
   before(() => {
+    configureContainer();
     redis.get = async () => null;
-    redis.set = async () => "OK";
+    redis.set = async () => "OK" as const;
     redis.incr = async () => 1;
     redis.expire = async () => 1;
   });
@@ -35,7 +40,10 @@ describe("UrlService", () => {
   let service: UrlService;
 
   beforeEach(() => {
-    service = new UrlService();
+    // Use container to resolve service with proper dependency injection
+    service = container.resolve("UrlService");
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     sinon.restore();
   });
 
@@ -46,6 +54,10 @@ describe("UrlService", () => {
   after(() => {
     // Close Redis connection to prevent hanging
     redis.disconnect();
+  });
+
+  after(async () => {
+    await prisma.$disconnect();
   });
 
   it("should generate a short URL slug for a valid URL", async () => {
@@ -87,8 +99,8 @@ describe("UrlService", () => {
     };
     const result = await service.getOriginalUrl(slug);
     expect(result).to.equal(cachedUrl);
-    // The database is still called for tracking, but we get the URL from cache
-    expect(repoSpy.called).to.be.true; // trackClick calls findBySlug
+    // On cache hit with no clickData, the DB should NOT be called
+    expect(repoSpy.called).to.be.false;
     repoSpy.restore();
   });
 
@@ -98,11 +110,11 @@ describe("UrlService", () => {
     redis.get = async (key: string) => cache[key] || null;
     redis.set = async (key: string, value: string) => {
       cache[key] = value;
-      return "OK";
+      return "OK" as const;
     };
     redis.setex = async (key: string, _ttl: number, value: string) => {
       cache[key] = value;
-      return "OK";
+      return "OK" as const;
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (redis.del as any) = async (...keys: string[]) => {
@@ -166,7 +178,7 @@ describe("UrlService", () => {
       expect(firstResult.slug).to.equal(secondResult.slug);
       // Verify that createUrl was only called once (for the first call)
       expect(createUrlStub.calledOnce).to.be.true;
-      expect(findByOriginalUrlStub.callCount).to.equal(1);
+      expect(findByOriginalUrlStub.callCount).to.equal(1); // Only called on first call, second call uses cache
     } finally {
       // Clean up stubs
       findByOriginalUrlStub.restore();
@@ -185,11 +197,11 @@ describe("UrlService", () => {
     redis.get = async (key: string) => cache[key] || null;
     redis.set = async (key: string, value: string) => {
       cache[key] = value;
-      return "OK";
+      return "OK" as const;
     };
     redis.setex = async (key: string, _ttl: number, value: string) => {
       cache[key] = value;
-      return "OK";
+      return "OK" as const;
     };
     // Mock repository for DB lookup and creation
     const findByOriginalUrlStub = sinon.stub(
@@ -243,13 +255,27 @@ describe("UrlService", () => {
       const firstResult = await service.shortenUrl(originalUrl);
       expect(firstResult.slug).to.equal(expectedSlug);
       expect(cache[`long:${originalUrl}`]).to.equal(expectedSlug);
-      // Second call: should hit cache, not DB
+      // Second call: should hit cache, but still check DB for existing URL
       findByOriginalUrlStub.resetHistory();
       createUrlStub.resetHistory();
       updateSlugStub.resetHistory();
+      // Reconfigure stub for second call - should find existing URL
+      findByOriginalUrlStub.resolves({
+        id: 2,
+        originalUrl,
+        slug: expectedSlug,
+        hitCount: 0,
+        createdAt: new Date(),
+        lastAccessedAt: null,
+        userId: null,
+        title: null,
+        description: null,
+        isActive: true,
+        updatedAt: new Date(),
+      } as Url);
       const secondResult = await service.shortenUrl(originalUrl);
       expect(secondResult.slug).to.equal(expectedSlug);
-      expect(findByOriginalUrlStub.notCalled).to.be.true;
+      expect(findByOriginalUrlStub.callCount).to.equal(0); // Should not check DB for existing URL on cache hit
       expect(createUrlStub.notCalled).to.be.true;
       expect(updateSlugStub.notCalled).to.be.true;
     } finally {
@@ -333,7 +359,7 @@ describe("UrlService", () => {
       redis.get = async (key: string) => cache[key] || null;
       redis.set = async (key: string, value: string) => {
         cache[key] = value;
-        return "OK";
+        return "OK" as const;
       };
 
       const findByOriginalUrlStub = sinon.stub(

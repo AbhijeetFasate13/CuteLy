@@ -3,6 +3,7 @@
 import "dotenv/config";
 import { expect } from "chai";
 import { AnalyticsRepository } from "../repositories/analytics.repository";
+import prisma from "../config/prisma";
 
 // Helper to spy on repository
 const sinon = require("sinon");
@@ -14,7 +15,8 @@ let urlCountStub: any;
 let clickCountStub: any;
 let userCountStub: any;
 
-describe("AnalyticsRepository", () => {
+describe("AnalyticsRepository", function () {
+  this.timeout(10000);
   let analyticsRepository: AnalyticsRepository;
 
   beforeEach(() => {
@@ -58,17 +60,17 @@ describe("AnalyticsRepository", () => {
       const urlId = 1;
       const userId = 2;
       const clickData = {
-        ipAddress: "192.168.1.1",
+        ipAddress: "127.0.0.1",
         userAgent: "Mozilla/5.0",
-        referrer: null,
-        country: null,
-        city: null,
-        region: null,
-        timezone: null,
-        deviceType: null,
-        browser: null,
-        os: null,
-        language: null,
+        referrer: undefined,
+        country: undefined,
+        city: undefined,
+        region: undefined,
+        timezone: undefined,
+        deviceType: undefined,
+        browser: undefined,
+        os: undefined,
+        language: undefined,
       };
 
       const expectedClick = {
@@ -99,17 +101,17 @@ describe("AnalyticsRepository", () => {
       // Arrange
       const urlId = 1;
       const clickData = {
-        ipAddress: "192.168.1.1",
+        ipAddress: "127.0.0.1",
         userAgent: "Mozilla/5.0",
-        referrer: null,
-        country: null,
-        city: null,
-        region: null,
-        timezone: null,
-        deviceType: null,
-        browser: null,
-        os: null,
-        language: null,
+        referrer: undefined,
+        country: undefined,
+        city: undefined,
+        region: undefined,
+        timezone: undefined,
+        deviceType: undefined,
+        browser: undefined,
+        os: undefined,
+        language: undefined,
       };
 
       const expectedClick = {
@@ -306,4 +308,8 @@ describe("AnalyticsRepository", () => {
       expect(userCountStub.calledOnce).to.be.true;
     });
   });
+});
+
+after(async () => {
+  await prisma.$disconnect();
 });

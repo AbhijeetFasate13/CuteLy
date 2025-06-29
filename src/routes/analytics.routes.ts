@@ -1,10 +1,14 @@
-import { Router, Request, Response, NextFunction } from "express";
-import { AnalyticsController } from "../controllers/analytics.controller";
-import { authenticateToken, optionalAuth } from "../middleware/auth.middleware";
+import express from "express";
+import { authenticateToken } from "../middleware/auth.middleware";
+import {
+  trackClick,
+  getUrlAnalytics,
+  getUserAnalytics,
+  getGlobalAnalytics,
+} from "../controllers/analytics.controller";
 import { asyncHandler } from "../utils/asyncHandler";
 
-const router = Router();
-const analyticsController = new AnalyticsController();
+const router = express.Router();
 
 /**
  * @swagger
@@ -37,14 +41,8 @@ const analyticsController = new AnalyticsController();
  */
 router.get(
   "/api/analytics/url/:slug",
-  optionalAuth,
-  asyncHandler(
-    analyticsController.getUrlAnalytics.bind(analyticsController) as (
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ) => Promise<void>,
-  ),
+  authenticateToken,
+  asyncHandler(getUrlAnalytics),
 );
 
 /**
@@ -71,13 +69,7 @@ router.get(
 router.get(
   "/api/analytics/user",
   authenticateToken,
-  asyncHandler(
-    analyticsController.getUserAnalytics.bind(analyticsController) as (
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ) => Promise<void>,
-  ),
+  asyncHandler(getUserAnalytics),
 );
 
 /**
@@ -99,13 +91,8 @@ router.get(
  */
 router.get(
   "/api/analytics/global",
-  asyncHandler(
-    analyticsController.getGlobalAnalytics.bind(analyticsController) as (
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ) => Promise<void>,
-  ),
+  authenticateToken,
+  asyncHandler(getGlobalAnalytics),
 );
 
 /**
@@ -129,16 +116,6 @@ router.get(
  *       404:
  *         description: URL not found
  */
-router.post(
-  "/api/analytics/track/:slug",
-  optionalAuth,
-  asyncHandler(
-    analyticsController.trackClick.bind(analyticsController) as (
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ) => Promise<void>,
-  ),
-);
+router.post("/track/:urlId", asyncHandler(trackClick));
 
 export default router;

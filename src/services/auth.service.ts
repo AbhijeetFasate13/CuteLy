@@ -1,58 +1,53 @@
+import "reflect-metadata";
+import { injectable, inject } from "tsyringe";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { Secret } from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
 import logger from "../config/logger";
+import { AuthenticationError, ConflictError } from "../utils/errors";
+import config from "../config/app.config";
 
+@injectable()
 export class AuthService {
-  private userRepository: UserRepository;
-  private readonly SALT_ROUNDS = 12;
-  private readonly JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
-  private readonly JWT_EXPIRES_IN = "7d"; // 7 days
-
-  constructor() {
-    this.userRepository = new UserRepository();
-  }
+  constructor(
+    @inject("UserRepository") private userRepository: UserRepository,
+  ) {}
 
   /**
-   * Register a new user account
-   * @param email - User's email address
-   * @param password - User's password (will be hashed)
-   * @param name - User's display name
-   * @returns Promise with user data and authentication token
+   * Register a new user
    */
   async registerUser(email: string, password: string, name?: string) {
     try {
       // Check if user already exists
       const existingUser = await this.userRepository.findByEmail(email);
       if (existingUser) {
-        throw new Error("User with this email already exists");
+        throw new ConflictError("User with this email already exists");
       }
 
-      // Hash the password securely
-      const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
+      // Hash password
+      const hashedPassword = await bcrypt.hash(
+        password,
+        config.get("security.bcryptRounds"),
+      );
 
-      // Create the new user
-      const newUser = await this.userRepository.createUser({
+      // Create user
+      const user = await this.userRepository.createUser(
         email,
-        password: hashedPassword,
+        hashedPassword,
         name,
-      });
+      );
 
-      // Generate authentication token
-      const token = this.generateToken(newUser.id);
+      // Generate JWT token
+      const token = this.generateToken(user.id);
 
-      logger.info("User registered successfully", {
-        userId: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-      });
+      logger.info("User registered successfully", { email, userId: user.id });
 
       return {
         user: {
-          id: newUser.id,
-          email: newUser.email,
-          name: newUser.name,
-          createdAt: newUser.createdAt,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          createdAt: user.createdAt,
         },
         token,
       };
@@ -66,37 +61,31 @@ export class AuthService {
   }
 
   /**
-   * Authenticate a user and generate login token
-   * @param email - User's email address
-   * @param password - User's password
-   * @returns Promise with user data and authentication token
+   * Login user with email and password
    */
   async loginUser(email: string, password: string) {
     try {
       // Find user by email
       const user = await this.userRepository.findByEmail(email);
       if (!user) {
-        throw new Error("Invalid email or password");
+        throw new AuthenticationError("Invalid email or password");
       }
 
-      // Check if account is active
+      // Check if user is active
       if (!user.isActive) {
-        throw new Error("Account is deactivated");
+        throw new AuthenticationError("Account is deactivated");
       }
 
       // Verify password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        throw new Error("Invalid email or password");
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        throw new AuthenticationError("Invalid email or password");
       }
 
-      // Generate authentication token
+      // Generate JWT token
       const token = this.generateToken(user.id);
 
-      logger.info("User logged in successfully", {
-        userId: user.id,
-        email: user.email,
-      });
+      logger.info("User logged in successfully", { email, userId: user.id });
 
       return {
         user: {
@@ -117,11 +106,7 @@ export class AuthService {
   }
 
   /**
-   * Change user's password
-   * @param userId - User's ID
-   * @param currentPassword - Current password for verification
-   * @param newPassword - New password to set
-   * @returns Promise with success message
+   * Change user password
    */
   async changePassword(
     userId: number,
@@ -129,40 +114,35 @@ export class AuthService {
     newPassword: string,
   ) {
     try {
-      // Get user's current data
+      // Get user
       const user = await this.userRepository.findById(userId);
       if (!user) {
-        throw new Error("User not found");
+        throw new AuthenticationError("User not found");
       }
 
       // Verify current password
-      const isCurrentPasswordValid = await bcrypt.compare(
+      const isValidPassword = await bcrypt.compare(
         currentPassword,
         user.password,
       );
-      if (!isCurrentPasswordValid) {
-        throw new Error("Current password is incorrect");
+      if (!isValidPassword) {
+        throw new AuthenticationError("Current password is incorrect");
       }
 
-      // Hash the new password
+      // Hash new password
       const hashedNewPassword = await bcrypt.hash(
         newPassword,
-        this.SALT_ROUNDS,
+        config.get("security.bcryptRounds"),
       );
 
-      // Update user's password
+      // Update password
       await this.userRepository.updateUser(userId, {
         password: hashedNewPassword,
       });
 
-      logger.info("Password changed successfully", {
-        userId,
-        email: user.email,
-      });
+      logger.info("Password changed successfully", { userId });
 
-      return {
-        message: "Password updated successfully",
-      };
+      return { message: "Password updated successfully" };
     } catch (error) {
       logger.error("Password change failed", {
         userId,
@@ -173,36 +153,20 @@ export class AuthService {
   }
 
   /**
-   * Update user's profile information
-   * @param userId - User's ID
-   * @param name - New display name
-   * @returns Promise with updated user data
+   * Update user profile
    */
   async updateProfile(userId: number, name: string) {
     try {
-      // Get current user data
-      const currentUser = await this.userRepository.findById(userId);
-      if (!currentUser) {
-        throw new Error("User not found");
-      }
+      const user = await this.userRepository.updateUser(userId, { name });
 
-      // Update user's name
-      const updatedUser = await this.userRepository.updateUser(userId, {
-        name,
-      });
-
-      logger.info("Profile updated successfully", {
-        userId,
-        email: currentUser.email,
-        newName: name,
-      });
+      logger.info("Profile updated successfully", { userId });
 
       return {
         user: {
-          id: updatedUser.id,
-          email: updatedUser.email,
-          name: updatedUser.name,
-          createdAt: updatedUser.createdAt,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          createdAt: user.createdAt,
         },
       };
     } catch (error) {
@@ -215,28 +179,24 @@ export class AuthService {
   }
 
   /**
-   * Get user's profile information (without sensitive data)
-   * @param userId - User's ID
-   * @returns Promise with user profile data
+   * Get user profile without sensitive data
    */
   async getUserProfile(userId: number) {
     try {
       const user = await this.userRepository.findById(userId);
       if (!user) {
-        throw new Error("User not found");
+        throw new AuthenticationError("User not found");
       }
 
-      // Return user data without password
       return {
         id: user.id,
         email: user.email,
         name: user.name,
-        isActive: user.isActive,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
     } catch (error) {
-      logger.error("Failed to get user profile", {
+      logger.error("Get user profile failed", {
         userId,
         error: (error as Error).message,
       });
@@ -245,32 +205,12 @@ export class AuthService {
   }
 
   /**
-   * Verify and decode a JWT token
-   * @param token - JWT token to verify
-   * @returns Promise with decoded token payload
-   */
-  async verifyToken(token: string) {
-    try {
-      const decoded = jwt.verify(token, this.JWT_SECRET) as { userId: number };
-      return decoded;
-    } catch (error) {
-      logger.warn("Token verification failed", {
-        error: (error as Error).message,
-      });
-      throw new Error("Invalid or expired token");
-    }
-  }
-
-  // ===== PRIVATE HELPER METHODS =====
-
-  /**
-   * Generate a JWT token for user authentication
-   * @param userId - User's ID to include in token
-   * @returns JWT token string
+   * Generate JWT token for user
    */
   private generateToken(userId: number): string {
-    return jwt.sign({ userId }, this.JWT_SECRET, {
-      expiresIn: this.JWT_EXPIRES_IN,
-    });
+    const secret = config.get("jwt.secret") as Secret;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const options = { expiresIn: config.get("jwt.expiresIn") } as any;
+    return jwt.sign({ userId }, secret, options);
   }
 }

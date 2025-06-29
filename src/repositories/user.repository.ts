@@ -1,61 +1,79 @@
-import prisma from "../config/prisma";
+import "reflect-metadata";
+import { injectable, inject } from "tsyringe";
+import { PrismaClient } from "@prisma/client";
 
+@injectable()
 export class UserRepository {
+  constructor(@inject("PrismaClient") private prisma: PrismaClient) {}
+
   /**
-   * Create a new user account
-   * @param userData - User registration data
-   * @returns Promise with the created user record
+   * Create a new user
+   * @param email - User's email address
+   * @param password - Hashed password
+   * @param name - User's display name
+   * @returns Promise with created user
    */
-  async createUser(userData: {
-    email: string;
-    password: string;
-    name?: string;
-  }) {
-    return prisma.user.create({
-      data: userData,
+  async createUser(email: string, password: string, name?: string) {
+    return this.prisma.user.create({
+      data: {
+        email,
+        password,
+        name,
+      },
     });
   }
 
   /**
-   * Find a user by their email address
-   * @param email - The user's email address
-   * @returns Promise with the user record or null
+   * Find user by email address
+   * @param email - User's email address
+   * @returns Promise with user or null
    */
   async findByEmail(email: string) {
-    return prisma.user.findUnique({
+    return this.prisma.user.findUnique({
       where: { email },
     });
   }
 
   /**
-   * Find a user by their database ID
-   * @param id - The user's database ID
-   * @returns Promise with the user record or null
+   * Find user by ID
+   * @param id - User's ID
+   * @returns Promise with user or null
    */
   async findById(id: number) {
-    return prisma.user.findUnique({
+    return this.prisma.user.findUnique({
       where: { id },
     });
   }
 
   /**
-   * Update a user's information
-   * @param id - The user's database ID
-   * @param updateData - The data to update
-   * @returns Promise with the updated user record
+   * Update user information
+   * @param id - User's ID
+   * @param data - Data to update
+   * @returns Promise with updated user
    */
   async updateUser(
     id: number,
-    updateData: {
+    data: {
       email?: string;
       password?: string;
       name?: string;
       isActive?: boolean;
     },
   ) {
-    return prisma.user.update({
+    return this.prisma.user.update({
       where: { id },
-      data: updateData,
+      data,
+    });
+  }
+
+  /**
+   * Delete user account
+   * @param id - User's ID
+   * @returns Promise with deleted user
+   */
+  async deleteUser(id: number) {
+    return this.prisma.user.delete({
+      where: { id },
     });
   }
 
@@ -65,7 +83,7 @@ export class UserRepository {
    * @returns Promise with the deactivated user record
    */
   async deactivateUser(id: number) {
-    return prisma.user.update({
+    return this.prisma.user.update({
       where: { id },
       data: { isActive: false },
     });
@@ -77,14 +95,14 @@ export class UserRepository {
    * @returns Promise with the reactivated user record
    */
   async reactivateUser(id: number) {
-    return prisma.user.update({
+    return this.prisma.user.update({
       where: { id },
       data: { isActive: true },
     });
   }
 
   async getUserUrls(userId: number) {
-    return prisma.url.findMany({
+    return this.prisma.url.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
     });
@@ -94,7 +112,7 @@ export class UserRepository {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    return prisma.url.findMany({
+    return this.prisma.url.findMany({
       where: {
         userId,
         createdAt: {

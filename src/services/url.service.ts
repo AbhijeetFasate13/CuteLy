@@ -1,17 +1,38 @@
+import "reflect-metadata";
+import { injectable, inject } from "tsyringe";
 import { UrlRepository } from "../repositories/url.repository";
 import { AnalyticsRepository } from "../repositories/analytics.repository";
-import { generateSlug } from "../utils/base62.util";
 import redis from "../config/redis";
+import * as base62Util from "../utils/base62.util";
 import logger from "../config/logger";
+import {
+  NotFoundError,
+  DatabaseError,
+  AuthorizationError,
+} from "../utils/errors";
+import config from "../config/app.config";
 
+export interface ClickData {
+  ipAddress: string;
+  userAgent: string;
+  referrer?: string;
+  country?: string;
+  city?: string;
+  region?: string;
+  timezone?: string;
+  deviceType?: string;
+  browser?: string;
+  os?: string;
+  language?: string;
+}
+
+@injectable()
 export class UrlService {
-  private urlRepository: UrlRepository;
-  private analyticsRepository: AnalyticsRepository;
-
-  constructor() {
-    this.urlRepository = new UrlRepository();
-    this.analyticsRepository = new AnalyticsRepository();
-  }
+  constructor(
+    @inject("UrlRepository") private urlRepository: UrlRepository,
+    @inject("AnalyticsRepository")
+    private analyticsRepository: AnalyticsRepository,
+  ) {}
 
   /**
    * Shorten a URL and optionally associate it with a user
@@ -28,61 +49,31 @@ export class UrlService {
     description?: string,
   ) {
     try {
-      // Check cache first for anonymous URLs
+      // Check cache for long URL to slug mapping (only for non-user URLs)
       if (!userId) {
-        const cachedSlug = await this.getCachedLongUrl(originalUrl);
+        const cachedSlug = await redis.get(`long:${originalUrl}`);
         if (cachedSlug) {
+          logger.info("Returning cached slug for long URL (from cache)", {
+            originalUrl,
+            slug: cachedSlug,
+          });
+          return { slug: cachedSlug };
+        }
+        // If not in cache, check DB
+        const existingUrl =
+          await this.urlRepository.findByOriginalUrl(originalUrl);
+        if (existingUrl) {
           logger.info("Returning cached slug for long URL", {
             originalUrl,
-            slug: cachedSlug,
-          });
-          // Return a proper Url object structure
-          return {
-            id: 0, // Placeholder since we don't have the actual ID
-            originalUrl,
-            slug: cachedSlug,
-            hitCount: 0,
-            createdAt: new Date(),
-            lastAccessedAt: null,
-            userId: null,
-            title: null,
-            description: null,
-            isActive: true,
-            updatedAt: new Date(),
-          };
-        }
-      }
-
-      // Check if URL already exists for this user (or globally if no user)
-      const existingUrl =
-        await this.urlRepository.findByOriginalUrl(originalUrl);
-
-      if (existingUrl) {
-        // If URL exists and belongs to the same user, return existing slug
-        if (existingUrl.userId === userId) {
-          logger.info("Returning existing URL for same user", {
-            originalUrl,
             slug: existingUrl.slug,
-            userId,
           });
-          return existingUrl;
-        }
-
-        // If URL exists but belongs to different user, create new entry
-        // This allows same URL to have different slugs for different users
-        if (userId) {
-          logger.info("Creating new slug for same URL but different user", {
-            originalUrl,
-            existingSlug: existingUrl.slug,
-            userId,
-          });
+          // Cache the mapping for future requests
+          await this.cacheLongUrl(originalUrl, existingUrl.slug);
+          return { slug: existingUrl.slug };
         }
       }
 
-      // Generate a unique slug
-      const slug = await this.generateUniqueSlug();
-
-      // Create the URL record
+      // Create new URL record
       const urlRecord = await this.urlRepository.createUrl(
         originalUrl,
         userId,
@@ -90,18 +81,16 @@ export class UrlService {
         description,
       );
 
-      // Update the record with the generated slug
-      const finalUrlRecord = await this.urlRepository.updateSlug(
-        urlRecord.id,
-        slug,
-      );
+      // Generate unique slug
+      const slug = await this.generateUniqueSlug(urlRecord.id);
 
-      // Cache the slug-to-URL mapping for faster redirects
+      // Update URL with slug
+      await this.urlRepository.updateSlug(urlRecord.id, slug);
+
+      // Cache the URL (only for non-user URLs)
       if (!userId) {
-        // Only cache anonymous URLs to avoid conflicts
-        await this.cacheUrlMapping(slug, originalUrl);
-        // Also cache the long URL to slug mapping for repeated requests
-        await this.cacheLongUrlMapping(originalUrl, slug);
+        await this.cacheUrl(slug, originalUrl);
+        await this.cacheLongUrl(originalUrl, slug);
       }
 
       logger.info("URL shortened successfully", {
@@ -112,11 +101,9 @@ export class UrlService {
         description,
       });
 
-      return finalUrlRecord;
+      return { slug };
     } catch (error) {
-      logger.error("Failed to shorten URL", {
-        originalUrl,
-        userId,
+      logger.error("URL shortening failed", {
         error: (error as Error).message,
       });
       throw error;
@@ -129,37 +116,32 @@ export class UrlService {
    * @param clickData - Optional click tracking data
    * @returns Promise with the original URL
    */
-  async getOriginalUrl(
-    slug: string,
-    clickData?: {
-      ipAddress?: string;
-      userAgent?: string;
-      referrer?: string;
-      userId?: number;
-    },
-  ) {
+  async getOriginalUrl(slug: string, clickData?: ClickData) {
     try {
-      // Try to get URL from cache first
-      const cachedUrl = await this.getCachedUrl(slug);
+      // Try to get from cache first
+      const cachedUrl = await redis.get(`short:${slug}`);
       if (cachedUrl) {
+        logger.debug("URL retrieved from cache", { slug });
         await this.trackClick(slug, clickData);
         return cachedUrl;
       }
 
-      // If not in cache, get from database
+      // Get from database
       const urlRecord = await this.urlRepository.findBySlug(slug);
       if (!urlRecord) {
-        throw new Error("URL not found");
+        throw new NotFoundError("URL not found");
       }
 
       // Update hit count and last accessed time
       await this.urlRepository.incrementHitCount(slug);
 
-      // Track the click with analytics
-      await this.trackClick(slug, clickData);
+      // Track analytics if click data provided
+      if (clickData) {
+        await this.trackClick(slug, clickData);
+      }
 
-      // Cache the URL for future requests
-      await this.cacheUrlMapping(slug, urlRecord.originalUrl);
+      // Cache the URL
+      await this.cacheUrl(slug, urlRecord.originalUrl);
 
       return urlRecord.originalUrl;
     } catch (error) {
@@ -178,20 +160,15 @@ export class UrlService {
    */
   async getUserUrls(userId: number) {
     try {
-      const userUrls = await this.urlRepository.getUserUrls(userId);
-
-      logger.info("Retrieved user URLs", {
-        userId,
-        urlCount: userUrls.length,
-      });
-
-      return userUrls;
+      const urls = await this.urlRepository.getUserUrls(userId);
+      logger.info("Retrieved user URLs", { userId, count: urls.length });
+      return urls;
     } catch (error) {
       logger.error("Failed to get user URLs", {
         userId,
         error: (error as Error).message,
       });
-      throw error;
+      throw new DatabaseError("Failed to retrieve user URLs");
     }
   }
 
@@ -203,28 +180,22 @@ export class UrlService {
    */
   async deleteUrl(slug: string, userId: number) {
     try {
-      // Find the URL to check ownership
       const urlRecord = await this.urlRepository.findBySlug(slug);
       if (!urlRecord) {
-        throw new Error("URL not found");
+        throw new NotFoundError("URL not found");
       }
 
-      // Check if user owns this URL
       if (urlRecord.userId !== userId) {
-        throw new Error("Access denied");
+        throw new AuthorizationError("Access denied");
       }
 
-      // Delete the URL
       await this.urlRepository.deleteUrl(urlRecord.id);
 
       // Remove from cache
-      await this.removeFromCache(slug);
+      await redis.del(`short:${slug}`);
+      await redis.del(`long:${urlRecord.originalUrl}`);
 
-      logger.info("URL deleted successfully", {
-        slug,
-        userId,
-        originalUrl: urlRecord.originalUrl,
-      });
+      logger.info("URL deleted successfully", { slug, userId });
     } catch (error) {
       logger.error("Failed to delete URL", {
         slug,
@@ -238,183 +209,87 @@ export class UrlService {
   // ===== PRIVATE HELPER METHODS =====
 
   /**
-   * Generate a unique slug that doesn't already exist
+   * Generate a unique slug for a URL
+   * @param urlId - The ID of the URL
    * @returns Promise with unique slug
    */
-  private async generateUniqueSlug(): Promise<string> {
+  private async generateUniqueSlug(urlId: number): Promise<string> {
     let attempts = 0;
     const maxAttempts = 10;
 
     while (attempts < maxAttempts) {
-      const slug = generateSlug();
+      const slug = base62Util.toBase62(urlId + attempts);
 
-      // Check if slug already exists
       const existingUrl = await this.urlRepository.findBySlug(slug);
       if (!existingUrl) {
         return slug;
       }
 
       attempts++;
-      logger.warn("Slug collision detected, generating new slug", {
-        slug,
-        attempt: attempts,
-      });
     }
 
-    throw new Error("Failed to generate unique slug after maximum attempts");
+    throw new Error("Failed to generate unique slug");
   }
 
   /**
-   * Cache a URL mapping for faster lookups
+   * Cache a URL mapping
    * @param slug - The short URL slug
    * @param originalUrl - The original long URL
    */
-  private async cacheUrlMapping(
-    slug: string,
-    originalUrl: string,
-  ): Promise<void> {
+  private async cacheUrl(slug: string, originalUrl: string): Promise<void> {
     try {
-      const cacheKey = `short:${slug}`;
-      await redis.setex(cacheKey, 3600, originalUrl); // Cache for 1 hour
-
-      logger.debug("URL cached successfully", { slug, originalUrl });
+      await redis.setex(`short:${slug}`, config.get("redis.ttl"), originalUrl);
+      logger.debug("URL cached successfully", { slug });
     } catch (error) {
       logger.warn("Failed to cache URL", {
         slug,
-        originalUrl,
         error: (error as Error).message,
       });
+      // Don't throw - caching failure shouldn't break the main flow
     }
   }
 
   /**
-   * Cache a long URL to slug mapping for repeated requests
+   * Cache a long URL to slug mapping
    * @param originalUrl - The original long URL
    * @param slug - The short URL slug
    */
-  private async cacheLongUrlMapping(
-    originalUrl: string,
-    slug: string,
-  ): Promise<void> {
+  private async cacheLongUrl(originalUrl: string, slug: string): Promise<void> {
     try {
-      const cacheKey = `long:${originalUrl}`;
-      await redis.setex(cacheKey, 3600, slug); // Cache for 1 hour
-
+      await redis.setex(`long:${originalUrl}`, config.get("redis.ttl"), slug);
       logger.debug("Long URL cached successfully", { originalUrl, slug });
     } catch (error) {
       logger.warn("Failed to cache long URL", {
         originalUrl,
         error: (error as Error).message,
       });
+      // Don't throw - caching failure shouldn't break the main flow
     }
   }
 
   /**
-   * Get a URL from cache
-   * @param slug - The short URL slug
-   * @returns Promise with cached URL or null
-   */
-  private async getCachedUrl(slug: string): Promise<string | null> {
-    try {
-      const cacheKey = `short:${slug}`;
-      const cachedUrl = await redis.get(cacheKey);
-
-      if (cachedUrl) {
-        logger.debug("URL retrieved from cache", { slug });
-      }
-
-      return cachedUrl;
-    } catch (error) {
-      logger.warn("Failed to get URL from cache", {
-        slug,
-        error: (error as Error).message,
-      });
-      return null;
-    }
-  }
-
-  /**
-   * Remove a URL from cache
-   * @param slug - The short URL slug
-   */
-  private async removeFromCache(slug: string): Promise<void> {
-    try {
-      const cacheKey = `short:${slug}`;
-      await redis.del(cacheKey);
-
-      logger.debug("URL removed from cache", { slug });
-    } catch (error) {
-      logger.warn("Failed to remove URL from cache", {
-        slug,
-        error: (error as Error).message,
-      });
-    }
-  }
-
-  /**
-   * Track a click with analytics data
+   * Track click analytics
    * @param slug - The short URL slug
    * @param clickData - Optional click tracking data
    */
-  private async trackClick(
-    slug: string,
-    clickData?: {
-      ipAddress?: string;
-      userAgent?: string;
-      referrer?: string;
-      userId?: number;
-    },
-  ): Promise<void> {
+  private async trackClick(slug: string, clickData?: ClickData): Promise<void> {
+    if (!clickData) return;
+
     try {
       const urlRecord = await this.urlRepository.findBySlug(slug);
-      if (!urlRecord) {
-        return; // URL doesn't exist, skip tracking
-      }
+      if (!urlRecord) return;
 
       await this.analyticsRepository.trackClick(
         urlRecord.id,
-        clickData?.userId || null,
-        {
-          ipAddress: clickData?.ipAddress || null,
-          userAgent: clickData?.userAgent || null,
-          referrer: clickData?.referrer || null,
-        },
+        urlRecord.userId,
+        clickData,
       );
-
-      logger.debug("Click tracked successfully", {
-        slug,
-        urlId: urlRecord.id,
-        userId: clickData?.userId,
-      });
     } catch (error) {
       logger.warn("Failed to track click", {
         slug,
         error: (error as Error).message,
       });
-    }
-  }
-
-  /**
-   * Get a long URL from cache
-   * @param originalUrl - The original long URL
-   * @returns Promise with cached slug or null
-   */
-  private async getCachedLongUrl(originalUrl: string): Promise<string | null> {
-    try {
-      const cacheKey = `long:${originalUrl}`;
-      const cachedSlug = await redis.get(cacheKey);
-
-      if (cachedSlug) {
-        logger.debug("Long URL retrieved from cache", { originalUrl });
-      }
-
-      return cachedSlug;
-    } catch (error) {
-      logger.warn("Failed to get long URL from cache", {
-        originalUrl,
-        error: (error as Error).message,
-      });
-      return null;
+      // Don't throw - analytics failure shouldn't break the main flow
     }
   }
 }

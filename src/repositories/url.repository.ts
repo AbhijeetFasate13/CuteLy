@@ -1,6 +1,11 @@
-import prisma from "../config/prisma";
+import "reflect-metadata";
+import { injectable, inject } from "tsyringe";
+import { PrismaClient } from "@prisma/client";
 
+@injectable()
 export class UrlRepository {
+  constructor(@inject("PrismaClient") private prisma: PrismaClient) {}
+
   /**
    * Create a new URL record in the database
    * @param originalUrl - The long URL to be shortened
@@ -15,7 +20,7 @@ export class UrlRepository {
     title?: string,
     description?: string,
   ) {
-    return prisma.url.create({
+    return this.prisma.url.create({
       data: {
         originalUrl,
         slug: "", // Will be updated after creation
@@ -33,7 +38,7 @@ export class UrlRepository {
    * @returns Promise with the updated URL record
    */
   async updateSlug(id: number, slug: string) {
-    return prisma.url.update({
+    return this.prisma.url.update({
       where: { id },
       data: { slug },
     });
@@ -45,7 +50,7 @@ export class UrlRepository {
    * @returns Promise with the URL record or null
    */
   async findById(id: number) {
-    return prisma.url.findUnique({
+    return this.prisma.url.findUnique({
       where: { id },
     });
   }
@@ -56,7 +61,7 @@ export class UrlRepository {
    * @returns Promise with the URL record or null
    */
   async findBySlug(slug: string) {
-    return prisma.url.findUnique({
+    return this.prisma.url.findUnique({
       where: { slug },
     });
   }
@@ -67,7 +72,7 @@ export class UrlRepository {
    * @returns Promise with the URL record or null
    */
   async findByOriginalUrl(originalUrl: string) {
-    return prisma.url.findFirst({
+    return this.prisma.url.findFirst({
       where: { originalUrl },
     });
   }
@@ -78,7 +83,7 @@ export class UrlRepository {
    * @returns Promise with the updated URL record
    */
   async incrementHitCount(slug: string) {
-    return prisma.url.update({
+    return this.prisma.url.update({
       where: { slug },
       data: {
         hitCount: { increment: 1 },
@@ -93,7 +98,7 @@ export class UrlRepository {
    * @returns Promise with the updated URL record
    */
   async updateLastAccessedAt(slug: string) {
-    return prisma.url.update({
+    return this.prisma.url.update({
       where: { slug },
       data: {
         hitCount: { increment: 1 },
@@ -108,7 +113,7 @@ export class UrlRepository {
    * @returns Promise with array of user's URLs
    */
   async getUserUrls(userId: number) {
-    return prisma.url.findMany({
+    return this.prisma.url.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
     });
@@ -120,7 +125,7 @@ export class UrlRepository {
    * @returns Promise with the deleted URL record
    */
   async deleteUrl(id: number) {
-    return prisma.url.delete({
+    return this.prisma.url.delete({
       where: { id },
     });
   }

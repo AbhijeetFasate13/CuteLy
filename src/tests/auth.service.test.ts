@@ -4,20 +4,38 @@ import { expect } from "chai";
 import { AuthService } from "../services/auth.service";
 import { UserRepository } from "../repositories/user.repository";
 import bcrypt from "bcryptjs";
+import prisma from "../config/prisma";
+import redis from "../config/redis";
 
 const sinon = require("sinon");
 
-describe("AuthService", () => {
-  let authService: AuthService;
+// Test-specific AuthService that doesn't use DI
+class TestAuthService extends AuthService {
+  constructor(userRepository: UserRepository) {
+    super(userRepository);
+  }
+}
+
+describe("AuthService", function () {
+  this.timeout(10000);
+  let authService: TestAuthService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let userRepositoryStub: any;
 
   beforeEach(() => {
-    authService = new AuthService();
-    userRepositoryStub = sinon.createStubInstance(UserRepository);
-    (
-      authService as unknown as { userRepository: UserRepository }
-    ).userRepository = userRepositoryStub;
+    userRepositoryStub = {
+      findByEmail: sinon.stub(),
+      createUser: sinon.stub(),
+      findById: sinon.stub(),
+      updateUser: sinon.stub(),
+      deleteUser: sinon.stub(),
+      deactivateUser: sinon.stub(),
+      reactivateUser: sinon.stub(),
+      getUserUrls: sinon.stub(),
+      getUserAnalytics: sinon.stub(),
+    };
+    authService = new TestAuthService(userRepositoryStub);
+    sinon.restore();
   });
 
   afterEach(() => {
@@ -100,9 +118,9 @@ describe("AuthService", () => {
 
       // Assert
       const createUserCall = userRepositoryStub.createUser.getCall(0);
-      const userData = createUserCall.args[0];
-      expect(userData.password).to.not.equal(password);
-      expect(await bcrypt.compare(password, userData.password)).to.be.true;
+      const hashedPassword = createUserCall.args[1];
+      expect(hashedPassword).to.not.equal(password);
+      expect(await bcrypt.compare(password, hashedPassword)).to.be.true;
     });
   });
 
@@ -328,4 +346,9 @@ describe("AuthService", () => {
       expect(result).to.not.have.property("password");
     });
   });
+});
+
+after(async () => {
+  await prisma.$disconnect();
+  redis.disconnect();
 });

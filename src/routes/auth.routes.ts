@@ -1,10 +1,15 @@
-import { Router } from "express";
-import { AuthController } from "../controllers/auth.controller";
+import express from "express";
 import { authenticateToken } from "../middleware/auth.middleware";
+import {
+  registerUser,
+  loginUser,
+  changePassword,
+  updateProfile,
+  getUserProfile,
+} from "../controllers/auth.controller";
 import { asyncHandler } from "../utils/asyncHandler";
 
-const router = Router();
-const authController = new AuthController();
+const router = express.Router();
 
 /**
  * @swagger
@@ -21,46 +26,23 @@ const authController = new AuthController();
  *             required:
  *               - email
  *               - password
+ *               - name
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
- *                 example: "user@example.com"
  *               password:
  *                 type: string
- *                 minLength: 6
- *                 example: "password123"
+ *                 minLength: 8
  *               name:
  *                 type: string
- *                 example: "John Doe"
  *     responses:
  *       201:
  *         description: User registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                     email:
- *                       type: string
- *                     name:
- *                       type: string
- *                 token:
- *                   type: string
  *       400:
- *         description: Invalid input or user already exists
+ *         description: Invalid input data
  */
-router.post(
-  "/api/auth/register",
-  asyncHandler(authController.register.bind(authController)),
-);
+router.post("/register", asyncHandler(registerUser));
 
 /**
  * @swagger
@@ -81,86 +63,20 @@ router.post(
  *               email:
  *                 type: string
  *                 format: email
- *                 example: "user@example.com"
  *               password:
  *                 type: string
- *                 example: "password123"
  *     responses:
  *       200:
  *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 user:
- *                   type: object
- *                 token:
- *                   type: string
  *       401:
  *         description: Invalid credentials
  */
-router.post(
-  "/api/auth/login",
-  asyncHandler(authController.login.bind(authController)),
-);
+router.post("/login", asyncHandler(loginUser));
 
 /**
  * @swagger
- * /api/auth/profile:
- *   get:
- *     summary: Get user profile
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: User profile retrieved successfully
- *       401:
- *         description: Authentication required
- */
-router.get(
-  "/api/auth/profile",
-  authenticateToken,
-  asyncHandler(authController.getProfile.bind(authController)),
-);
-
-/**
- * @swagger
- * /api/auth/profile:
+ * /api/auth/password:
  *   put:
- *     summary: Update user profile
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: "John Doe"
- *     responses:
- *       200:
- *         description: Profile updated successfully
- *       401:
- *         description: Authentication required
- */
-router.put(
-  "/api/auth/profile",
-  authenticateToken,
-  asyncHandler(authController.updateProfile.bind(authController)),
-);
-
-/**
- * @swagger
- * /api/auth/change-password:
- *   post:
  *     summary: Change user password
  *     tags: [Authentication]
  *     security:
@@ -177,21 +93,58 @@ router.put(
  *             properties:
  *               currentPassword:
  *                 type: string
- *                 example: "oldpassword123"
  *               newPassword:
  *                 type: string
- *                 minLength: 6
- *                 example: "newpassword123"
+ *                 minLength: 8
  *     responses:
  *       200:
  *         description: Password changed successfully
  *       401:
- *         description: Authentication required or invalid current password
+ *         description: Authentication required
  */
-router.post(
-  "/api/auth/change-password",
-  authenticateToken,
-  asyncHandler(authController.changePassword.bind(authController)),
-);
+router.put("/password", authenticateToken, asyncHandler(changePassword));
+
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   put:
+ *     summary: Update user profile
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.put("/profile", authenticateToken, asyncHandler(updateProfile));
+
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   get:
+ *     summary: Get user profile
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *       401:
+ *         description: Authentication required
+ */
+router.get("/profile", authenticateToken, asyncHandler(getUserProfile));
 
 export default router;

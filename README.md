@@ -36,7 +36,7 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - **Caching Strategy**: Redis for both read and write path optimization
 - **Structured Logging**: Winston-based logging with different levels and formats
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 
@@ -59,16 +59,16 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - **Package Manager**: npm
 - **Environment**: dotenv
 
-##  Features
+## Features
 
 ### Core Functionality
 
--  **URL Shortening**: Convert long URLs to short, memorable slugs
--  **URL Redirection**: Fast redirects with analytics tracking
--  **Collision-Free Slugs**: Base62 encoding ensures unique, predictable URLs
--  **Analytics**: Track hit counts and last access times
--  **Type Safety**: Full TypeScript coverage with runtime validation
--  **Idempotent Operations**: Same long URL always returns same short URL
+- **URL Shortening**: Convert long URLs to short, memorable slugs
+- **URL Redirection**: Fast redirects with analytics tracking
+- **Collision-Free Slugs**: Base62 encoding ensures unique, predictable URLs
+- **Analytics**: Track hit counts and last access times
+- **Type Safety**: Full TypeScript coverage with runtime validation
+- **Idempotent Operations**: Same long URL always returns same short URL
 
 ### Production Features
 
@@ -96,7 +96,7 @@ This project demonstrates **Clean Architecture** principles with clear separatio
 - **Horizontal Scaling**: Stateless design allows easy scaling
 - **Monitoring**: Comprehensive logging and health checks
 
-##  API Documentation
+## API Documentation
 
 ### Interactive Documentation
 
@@ -167,7 +167,7 @@ Comprehensive health check for all services.
 }
 ```
 
-##  Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -235,14 +235,17 @@ The project includes comprehensive testing setup:
 # Run all tests
 npm test
 
-# Run tests with Prisma setup
-npm run test:with-db
+# Run integration tests
+npm run test:integration
+
+# Run unit tests
+npm run test:unit
 ```
 
 ### Test Coverage
 
 - **Unit Tests**: Service layer business logic
-- **Integration Tests**: API endpoints (ready to add)
+- **Integration Tests**: API endpoints with real database
 - **Database Tests**: Repository layer operations
 - **Caching Tests**: Redis integration verification
 
@@ -326,6 +329,6 @@ This project is licensed under the ISC License.
 
 ---
 
-**Built with ❤️ using modern TypeScript and clean architecture principles.**
+**Built with modern TypeScript and clean architecture principles.**
 
 For questions or collaboration, reach out at [fasateabhijeet13@gmail.com]

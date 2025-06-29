@@ -1,7 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import "reflect-metadata";
+import { injectable, inject } from "tsyringe";
 import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
+import {
+  LoginSchema,
+  RegisterSchema,
+  ChangePasswordSchema,
+  UpdateProfileSchema,
+} from "../dto/url.dto";
+import { ValidationError, AuthenticationError } from "../utils/errors";
 import logger from "../config/logger";
+import container from "../config/container";
 
+// Extend Express Request to include user information from JWT
 interface AuthRequest extends Request {
   user?: {
     id: number;
@@ -10,173 +22,232 @@ interface AuthRequest extends Request {
   };
 }
 
+@injectable()
 export class AuthController {
-  private authService: AuthService;
+  constructor(@inject("AuthService") private authService: AuthService) {}
 
-  constructor() {
-    this.authService = new AuthService();
-  }
-
-  async register(req: Request, res: Response) {
+  /**
+   * Register a new user
+   */
+  async registerUser(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password, name } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({
-          error: "Email and password are required",
-        });
+      // Validate request body
+      const validationResult = RegisterSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const errors = validationResult.error.errors
+          .map((err) => err.message)
+          .join(", ");
+        throw new ValidationError(errors);
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({
-          error: "Password must be at least 6 characters long",
-        });
-      }
+      const { email, password, name } = validationResult.data;
 
       const result = await this.authService.registerUser(email, password, name);
 
-      logger.info("User registered successfully", {
-        userId: result.user.id,
-        email: result.user.email,
-      });
-
-      res.status(201).json({
-        message: "User registered successfully",
-        user: result.user,
-        token: result.token,
-      });
+      logger.info("User registered successfully", { email });
+      (res as any).json(result);
     } catch (error) {
-      logger.error("Registration failed", { error: (error as Error).message });
-      res.status(400).json({
+      if (error instanceof ValidationError) {
+        (res as any).status(400).json({ error: error.message });
+        return;
+      }
+
+      logger.error("User registration failed", {
         error: (error as Error).message,
       });
+      (res as any).status(500).json({ error: "Failed to register user" });
     }
   }
 
-  async login(req: Request, res: Response) {
+  /**
+   * Login user
+   */
+  async loginUser(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({
-          error: "Email and password are required",
-        });
+      // Validate request body
+      const validationResult = LoginSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const errors = validationResult.error.errors
+          .map((err) => err.message)
+          .join(", ");
+        throw new ValidationError(errors);
       }
+
+      const { email, password } = validationResult.data;
 
       const result = await this.authService.loginUser(email, password);
 
-      logger.info("User logged in successfully", {
-        userId: result.user.id,
-        email: result.user.email,
-      });
-
-      res.json({
-        message: "Login successful",
-        user: result.user,
-        token: result.token,
-      });
+      logger.info("User logged in successfully", { email });
+      (res as any).json(result);
     } catch (error) {
-      logger.error("Login failed", { error: (error as Error).message });
-      res.status(401).json({
-        error: (error as Error).message,
-      });
+      if (error instanceof ValidationError) {
+        (res as any).status(400).json({ error: error.message });
+        return;
+      }
+      if (error instanceof AuthenticationError) {
+        (res as any).status(401).json({ error: error.message });
+        return;
+      }
+
+      logger.error("User login failed", { error: (error as Error).message });
+      (res as any).status(500).json({ error: "Failed to login user" });
     }
   }
 
-  async changePassword(req: AuthRequest, res: Response) {
+  /**
+   * Change user password
+   */
+  async changePassword(req: Request, res: Response): Promise<void> {
     try {
-      const { currentPassword, newPassword } = req.body;
-      const userId = req.user?.id;
-
+      const userId = (req as AuthRequest).user?.id;
       if (!userId) {
-        return res.status(401).json({
-          error: "Authentication required",
-        });
+        (res as any).status(401).json({ error: "Authentication required" });
+        return;
       }
 
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({
-          error: "Current password and new password are required",
-        });
+      // Validate request body
+      const validationResult = ChangePasswordSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const errors = validationResult.error.errors
+          .map((err) => err.message)
+          .join(", ");
+        throw new ValidationError(errors);
       }
 
-      if (newPassword.length < 6) {
-        return res.status(400).json({
-          error: "New password must be at least 6 characters long",
-        });
-      }
+      const { currentPassword, newPassword } = validationResult.data;
 
-      await this.authService.changePassword(
+      const result = await this.authService.changePassword(
         userId,
         currentPassword,
         newPassword,
       );
 
       logger.info("Password changed successfully", { userId });
-
-      res.json({
-        message: "Password changed successfully",
-      });
+      (res as any).json(result);
     } catch (error) {
+      if (error instanceof ValidationError) {
+        (res as any).status(400).json({ error: error.message });
+        return;
+      }
+      if (error instanceof AuthenticationError) {
+        (res as any).status(401).json({ error: error.message });
+        return;
+      }
+
       logger.error("Password change failed", {
         error: (error as Error).message,
       });
-      res.status(400).json({
-        error: (error as Error).message,
-      });
+      (res as any).status(500).json({ error: "Failed to change password" });
     }
   }
 
-  async updateProfile(req: AuthRequest, res: Response) {
+  /**
+   * Update user profile
+   */
+  async updateProfile(req: Request, res: Response): Promise<void> {
     try {
-      const { name } = req.body;
-      const userId = req.user?.id;
-
+      const userId = (req as AuthRequest).user?.id;
       if (!userId) {
-        return res.status(401).json({
-          error: "Authentication required",
-        });
+        (res as any).status(401).json({ error: "Authentication required" });
+        return;
       }
+
+      // Validate request body
+      const validationResult = UpdateProfileSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const errors = validationResult.error.errors
+          .map((err) => err.message)
+          .join(", ");
+        throw new ValidationError(errors);
+      }
+
+      const { name } = validationResult.data;
 
       const result = await this.authService.updateProfile(userId, name);
 
       logger.info("Profile updated successfully", { userId });
-
-      res.json({
-        message: "Profile updated successfully",
-        user: result.user,
-      });
+      (res as any).json(result);
     } catch (error) {
+      if (error instanceof ValidationError) {
+        (res as any).status(400).json({ error: error.message });
+        return;
+      }
+
       logger.error("Profile update failed", {
         error: (error as Error).message,
       });
-      res.status(400).json({
-        error: (error as Error).message,
-      });
+      (res as any).status(500).json({ error: "Failed to update profile" });
     }
   }
 
-  async getProfile(req: AuthRequest, res: Response) {
+  /**
+   * Get user profile
+   */
+  async getUserProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.id;
-
+      const userId = (req as AuthRequest).user?.id;
       if (!userId) {
-        return res.status(401).json({
-          error: "Authentication required",
-        });
+        (res as any).status(401).json({ error: "Authentication required" });
+        return;
       }
 
-      // Get user profile without password
-      const user = await this.authService.getUserProfile(userId);
+      const profile = await this.authService.getUserProfile(userId);
 
-      res.json({
-        user,
-      });
+      logger.info("User profile retrieved", { userId });
+      (res as any).json(profile);
     } catch (error) {
-      logger.error("Get profile failed", { error: (error as Error).message });
-      res.status(400).json({
+      if (error instanceof AuthenticationError) {
+        (res as any).status(401).json({ error: error.message });
+        return;
+      }
+
+      logger.error("Get user profile failed", {
         error: (error as Error).message,
       });
+      (res as any).status(500).json({ error: "Failed to get user profile" });
     }
   }
 }
+
+// Factory function to create controller instance
+export function createAuthController(): AuthController {
+  return new AuthController(container.resolve("AuthService"));
+}
+
+// Export controller functions for routes
+export const registerUser = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const controller = createAuthController();
+  await controller.registerUser(req, res);
+};
+
+export const loginUser = async (req: Request, res: Response): Promise<void> => {
+  const controller = createAuthController();
+  await controller.loginUser(req, res);
+};
+
+export const changePassword = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const controller = createAuthController();
+  await controller.changePassword(req, res);
+};
+
+export const updateProfile = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const controller = createAuthController();
+  await controller.updateProfile(req, res);
+};
+
+export const getUserProfile = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const controller = createAuthController();
+  await controller.getUserProfile(req, res);
+};

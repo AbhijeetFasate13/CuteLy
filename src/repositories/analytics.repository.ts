@@ -1,33 +1,31 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import prismaClient from "config/prisma";
+import "reflect-metadata";
+import { injectable, inject } from "tsyringe";
+import { PrismaClient } from "@prisma/client";
 
-interface ClickData {
-  ipAddress?: string | null;
-  userAgent?: string | null;
-  referrer?: string | null;
-  country?: string | null;
-  city?: string | null;
-  region?: string | null;
-  timezone?: string | null;
-  deviceType?: string | null;
-  browser?: string | null;
-  os?: string | null;
-  language?: string | null;
+export interface ClickData {
+  ipAddress: string;
+  userAgent: string;
+  referrer?: string;
+  country?: string;
+  city?: string;
+  region?: string;
+  timezone?: string;
+  deviceType?: string;
+  browser?: string;
+  os?: string;
+  language?: string;
 }
 
+@injectable()
 export class AnalyticsRepository {
-  private prisma;
-
-  constructor(prisma = prismaClient) {
-    this.prisma = prisma;
-  }
+  constructor(@inject("PrismaClient") private prisma: PrismaClient) {}
 
   /**
-   * Track a click on a URL with detailed analytics data
-   * @param urlId - The ID of the URL that was clicked
-   * @param userId - Optional user ID if the clicker is logged in
-   * @param clickData - Detailed information about the click
-   * @returns Promise with the created click record
+   * Track a click with analytics data
+   * @param urlId - The URL ID that was clicked
+   * @param userId - Optional user ID who clicked
+   * @param clickData - Analytics data about the click
+   * @returns Promise with created click record
    */
   async trackClick(urlId: number, userId: number | null, clickData: ClickData) {
     return this.prisma.click.create({
@@ -40,22 +38,20 @@ export class AnalyticsRepository {
   }
 
   /**
-   * Get comprehensive analytics for a specific URL
-   * @param urlId - The ID of the URL to analyze
-   * @param days - Number of days to look back (default: 30)
-   * @returns Promise with detailed analytics data
+   * Get analytics for a specific URL
+   * @param urlId - The URL ID to get analytics for
+   * @param days - Number of days to look back
+   * @returns Promise with analytics data
    */
   async getUrlAnalytics(urlId: number, days: number = 30) {
-    // Calculate the date threshold for filtering
-    const dateThreshold = new Date();
-    dateThreshold.setDate(dateThreshold.getDate() - days);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-    // Get all clicks for this URL within the time period
     const clicks = await this.prisma.click.findMany({
       where: {
         urlId,
         clickedAt: {
-          gte: dateThreshold,
+          gte: startDate,
         },
       },
       orderBy: {
@@ -63,193 +59,141 @@ export class AnalyticsRepository {
       },
     });
 
-    // Calculate analytics from the click data
-    const totalClicks = clicks.length;
-    const uniqueClicks = new Set(clicks.map((click) => click.ipAddress)).size;
-
-    // Aggregate data by various dimensions
-    const countries = this.aggregateByField(clicks, "country");
-    const cities = this.aggregateByField(clicks, "city");
-    const deviceTypes = this.aggregateByField(clicks, "deviceType");
-    const browsers = this.aggregateByField(clicks, "browser");
-    const operatingSystems = this.aggregateByField(clicks, "os");
-    const referrers = this.aggregateByField(clicks, "referrer");
-
-    return {
-      totalClicks,
-      uniqueClicks,
-      countries,
-      cities,
-      deviceTypes,
-      browsers,
-      operatingSystems,
-      referrers,
-      recentClicks: clicks.slice(0, 10), // Return last 10 clicks
+    // Process analytics data
+    const analytics = {
+      totalClicks: clicks.length,
+      uniqueClicks: new Set(clicks.map((click) => click.ipAddress)).size,
+      countries: this.countOccurrences(
+        clicks
+          .map((click) => click.country)
+          .filter((c): c is string => c !== null),
+      ),
+      cities: this.countOccurrences(
+        clicks
+          .map((click) => click.city)
+          .filter((c): c is string => c !== null),
+      ),
+      deviceTypes: this.countOccurrences(
+        clicks
+          .map((click) => click.deviceType)
+          .filter((d): d is string => d !== null),
+      ),
+      browsers: this.countOccurrences(
+        clicks
+          .map((click) => click.browser)
+          .filter((b): b is string => b !== null),
+      ),
+      operatingSystems: this.countOccurrences(
+        clicks.map((click) => click.os).filter((o): o is string => o !== null),
+      ),
+      referrers: this.countOccurrences(
+        clicks
+          .map((click) => click.referrer)
+          .filter((r): r is string => r !== null),
+      ),
+      recentClicks: clicks.slice(0, 10), // Last 10 clicks
     };
+
+    return analytics;
   }
 
   /**
-   * Get analytics for all URLs owned by a specific user
-   * @param userId - The user's ID
-   * @param days - Number of days to look back (default: 30)
-   * @returns Promise with user's URL analytics
+   * Get analytics for a specific user
+   * @param userId - The user ID to get analytics for
+   * @param days - Number of days to look back
+   * @returns Promise with user analytics data
    */
   async getUserAnalytics(userId: number, days: number = 30) {
-    // Calculate the date threshold for filtering
-    const dateThreshold = new Date();
-    dateThreshold.setDate(dateThreshold.getDate() - days);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-    // Get all URLs owned by the user with their click data
     const urls = await this.prisma.url.findMany({
       where: {
         userId,
         createdAt: {
-          gte: dateThreshold,
+          gte: startDate,
         },
       },
       include: {
         clicks: {
           where: {
             clickedAt: {
-              gte: dateThreshold,
+              gte: startDate,
             },
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
     });
 
-    // Calculate totals
     const totalUrls = urls.length;
     const totalClicks = urls.reduce((sum, url) => sum + url.clicks.length, 0);
-    const totalUniqueClicks = new Set(
-      urls.flatMap((url) => url.clicks.map((click) => click.ipAddress)),
-    ).size;
-
-    // Get top performing URLs
-    const topUrls = urls
-      .map((url) => ({
-        slug: url.slug,
-        originalUrl: url.originalUrl,
-        title: url.title,
-        clicks: url.clicks.length,
-        hitCount: url.hitCount,
-      }))
-      .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 5); // Top 5 URLs
 
     return {
       totalUrls,
       totalClicks,
-      totalUniqueClicks,
-      topUrls,
-      urls,
+      urls: urls.map((url) => ({
+        id: url.id,
+        slug: url.slug,
+        originalUrl: url.originalUrl,
+        hitCount: url.hitCount,
+        createdAt: url.createdAt,
+        clicks: url.clicks.length,
+      })),
     };
   }
 
   /**
-   * Get global analytics across all URLs and users
-   * @param days - Number of days to look back (default: 30)
+   * Get global analytics across all users
+   * @param days - Number of days to look back
    * @returns Promise with global analytics data
    */
   async getGlobalAnalytics(days: number = 30) {
-    // Calculate the date threshold for filtering
-    const dateThreshold = new Date();
-    dateThreshold.setDate(dateThreshold.getDate() - days);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
 
-    // Get basic counts
-    const totalUrls = await this.prisma.url.count();
-    const totalClicks = await this.prisma.click.count({
-      where: {
-        clickedAt: {
-          gte: dateThreshold,
+    const [totalUrls, totalClicks, totalUsers] = await Promise.all([
+      this.prisma.url.count({
+        where: {
+          createdAt: {
+            gte: startDate,
+          },
         },
-      },
-    });
-    const totalUsers = await this.prisma.user.count();
-
-    // Get top countries
-    const topCountries = await this.prisma.click.groupBy({
-      by: ["country"],
-      where: {
-        clickedAt: {
-          gte: dateThreshold,
+      }),
+      this.prisma.click.count({
+        where: {
+          clickedAt: {
+            gte: startDate,
+          },
         },
-        country: {
-          not: null,
+      }),
+      this.prisma.user.count({
+        where: {
+          createdAt: {
+            gte: startDate,
+          },
         },
-      },
-      _count: {
-        country: true,
-      },
-      orderBy: {
-        _count: {
-          country: "desc",
-        },
-      },
-      take: 5,
-    });
-
-    // Get top referrers
-    const topReferrers = await this.prisma.click.groupBy({
-      by: ["referrer"],
-      where: {
-        clickedAt: {
-          gte: dateThreshold,
-        },
-        referrer: {
-          not: null,
-        },
-      },
-      _count: {
-        referrer: true,
-      },
-      orderBy: {
-        _count: {
-          referrer: "desc",
-        },
-      },
-      take: 5,
-    });
+      }),
+    ]);
 
     return {
       totalUrls,
       totalClicks,
       totalUsers,
-      topCountries: topCountries.map((item) => ({
-        country: item.country,
-        count: item._count.country,
-      })),
-      topReferrers: topReferrers.map((item) => ({
-        referrer: item.referrer,
-        count: item._count.referrer,
-      })),
     };
   }
 
-  // ===== PRIVATE HELPER METHODS =====
-
   /**
-   * Aggregate click data by a specific field
-   * @param clicks - Array of click records
-   * @param fieldName - The field to aggregate by
-   * @returns Object with field values as keys and counts as values
+   * Helper method to count occurrences in an array
+   * @param items - Array of items to count
+   * @returns Object with item counts
    */
-  private aggregateByField(
-    clicks: ClickData[],
-    fieldName: string,
-  ): Record<string, number> {
-    const aggregation: Record<string, number> = {};
-
-    clicks.forEach((click) => {
-      const value = (click as any)[fieldName];
-      if (value) {
-        aggregation[value] = (aggregation[value] || 0) + 1;
-      }
-    });
-
-    return aggregation;
+  private countOccurrences(items: string[]): Record<string, number> {
+    return items.reduce(
+      (acc, item) => {
+        acc[item] = (acc[item] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
   }
 }

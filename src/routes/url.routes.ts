@@ -1,14 +1,14 @@
-import { Router } from "express";
+import express from "express";
+import { authenticateToken, verifyToken } from "../middleware/auth.middleware";
 import {
   shortenUrl,
   redirectToUrl,
   getUserUrls,
   deleteUrl,
 } from "../controllers/url.controller";
-import { authenticateToken, optionalAuth } from "../middleware/auth.middleware";
 import { asyncHandler } from "../utils/asyncHandler";
 
-const router = Router();
+const router = express.Router();
 
 /**
  * @swagger
@@ -16,8 +16,6 @@ const router = Router();
  *   post:
  *     summary: Shorten a URL
  *     tags: [URLs]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -30,41 +28,41 @@ const router = Router();
  *               url:
  *                 type: string
  *                 format: uri
- *                 description: The long URL to be shortened
- *                 example: "https://example.com/very/long/url/that/needs/shortening"
  *               title:
  *                 type: string
- *                 description: Custom title for the URL
- *                 example: "My Custom URL"
  *               description:
  *                 type: string
- *                 description: Custom description for the URL
- *                 example: "A description for my shortened URL"
  *     responses:
  *       200:
  *         description: URL shortened successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 slug:
- *                   type: string
- *                   description: The generated short URL slug
- *                   example: "abc123"
- *                 shortUrl:
- *                   type: string
- *                   format: uri
- *                   description: The complete short URL
- *                   example: "http://localhost:3000/abc123"
  *       400:
- *         description: Invalid URL
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Invalid URL format
  */
-router.post("/api/shorten", optionalAuth, asyncHandler(shortenUrl));
+router.post(
+  "/shorten",
+  verifyToken, // Optional authentication
+  asyncHandler(shortenUrl),
+);
+
+/**
+ * @swagger
+ * /{slug}:
+ *   get:
+ *     summary: Redirect to original URL
+ *     tags: [URLs]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Redirect to original URL
+ *       404:
+ *         description: URL not found
+ */
+router.get("/:slug", asyncHandler(redirectToUrl));
 
 /**
  * @swagger
@@ -77,22 +75,10 @@ router.post("/api/shorten", optionalAuth, asyncHandler(shortenUrl));
  *     responses:
  *       200:
  *         description: User's URLs retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 urls:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Url'
- *                 count:
- *                   type: integer
- *                   description: Number of URLs returned
  *       401:
  *         description: Authentication required
  */
-router.get("/api/urls", authenticateToken, asyncHandler(getUserUrls));
+router.get("/urls", authenticateToken, asyncHandler(getUserUrls));
 
 /**
  * @swagger
@@ -108,18 +94,9 @@ router.get("/api/urls", authenticateToken, asyncHandler(getUserUrls));
  *         required: true
  *         schema:
  *           type: string
- *         description: URL slug to delete
  *     responses:
  *       200:
  *         description: URL deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "URL deleted successfully"
  *       401:
  *         description: Authentication required
  *       403:
@@ -127,27 +104,6 @@ router.get("/api/urls", authenticateToken, asyncHandler(getUserUrls));
  *       404:
  *         description: URL not found
  */
-router.delete("/api/urls/:slug", authenticateToken, asyncHandler(deleteUrl));
-
-/**
- * @swagger
- * /{slug}:
- *   get:
- *     summary: Redirect to original URL
- *     tags: [URLs]
- *     parameters:
- *       - in: path
- *         name: slug
- *         required: true
- *         schema:
- *           type: string
- *         description: Short URL slug
- *     responses:
- *       302:
- *         description: Redirect to original URL
- *       404:
- *         description: URL not found
- */
-router.get("/:slug", asyncHandler(redirectToUrl));
+router.delete("/urls/:slug", authenticateToken, asyncHandler(deleteUrl));
 
 export default router;

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import express from "express";
+import "reflect-metadata";
+import express, { Request, Response, ErrorRequestHandler } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
@@ -9,9 +10,14 @@ import authRoutes from "./routes/auth.routes";
 import analyticsRoutes from "./routes/analytics.routes";
 import { specs } from "./config/swagger";
 import logger from "./config/logger";
+import config from "./config/app.config";
+import { configureContainer } from "./config/container";
+
+// Initialize dependency injection container
+configureContainer();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = config.get("port");
 
 // Security middleware
 app.use(helmet());
@@ -41,8 +47,8 @@ app.use((req: any, res: any, next: any) => {
   next();
 });
 
-// Basic health check endpoint (redirects to comprehensive health check)
-app.get("/", (_req: any, res: any) => {
+// Root endpoint provides API status and metadata
+app.get("/", (_req: Request, res: Response) => {
   res.json({
     status: "OK",
     message: "CuteLy URL Shortener API is running",
@@ -85,49 +91,45 @@ app.use(urlRoutes);
 // 404 handler - must be last
 app.use((req: any, res: any) => {
   logger.warn(`Route not found: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ error: "Route not found" });
+  (res as any).status(404).json({ error: "Route not found" });
 });
 
 // Global error handler
-app.use((err: Error, req: any, res: any) => {
+app.use(((err: any, req: any, res: any) => {
   logger.error("Unhandled error", {
     error: err.message,
     stack: err.stack,
-    method: (req as any).method,
-    path: (req as any).path,
-    ip: (req as any).ip,
-    userAgent: (req as any).get("User-Agent"),
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    userAgent: req.get("User-Agent"),
   });
   (res as any).status(500).json({ error: "Internal server error" });
-});
+}) as ErrorRequestHandler);
 
 const server = app.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📊 Health check available at http://localhost:${PORT}/health`);
+  logger.info(`Server running on port ${PORT}`);
+  logger.info(`Environment: ${config.get("env")}`);
+  logger.info(`Health check available at http://localhost:${PORT}/health`);
   logger.info(
-    `📚 API Documentation available at http://localhost:${PORT}/api-docs`,
+    `API Documentation available at http://localhost:${PORT}/api-docs`,
   );
   logger.info(
-    `🔐 Authentication endpoints available at http://localhost:${PORT}/api/auth`,
+    `Authentication endpoints available at http://localhost:${PORT}/api/auth`,
   );
   logger.info(
-    `📈 Analytics endpoints available at http://localhost:${PORT}/api/analytics`,
+    `Analytics endpoints available at http://localhost:${PORT}/api/analytics`,
   );
 });
 
 // Graceful shutdown
-process.on("SIGTERM", () => {
-  logger.info("SIGTERM received, shutting down gracefully");
+function shutdown(signal: string) {
+  logger.info(`${signal} received, shutting down gracefully`);
   server.close(() => {
     logger.info("Process terminated");
     process.exit(0);
   });
-});
+}
 
-process.on("SIGINT", () => {
-  logger.info("SIGINT received, shutting down gracefully");
-  server.close(() => {
-    logger.info("Process terminated");
-    process.exit(0);
-  });
-});
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
