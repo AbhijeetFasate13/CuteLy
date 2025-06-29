@@ -25,23 +25,22 @@ type Url = {
 };
 
 describe("UrlService", () => {
-  let service: UrlService;
-
-  beforeEach(() => {
-    service = new UrlService();
-    sinon.restore();
+  before(() => {
     redis.get = async () => null;
     redis.set = async () => "OK";
     redis.incr = async () => 1;
     redis.expire = async () => 1;
   });
 
+  let service: UrlService;
+
+  beforeEach(() => {
+    service = new UrlService();
+    sinon.restore();
+  });
+
   afterEach(() => {
     sinon.restore();
-    redis.get = async () => null;
-    redis.set = async () => "OK";
-    redis.incr = async () => 1;
-    redis.expire = async () => 1;
   });
 
   after(() => {
